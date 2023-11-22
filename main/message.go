@@ -7,7 +7,6 @@ import (
 )
 
 var current_id int32 = 0
-var debug bool = true
 
 const (
 	NoOp                byte = 0
@@ -92,7 +91,7 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 	return conn.WriteTo(m, addr)
 }
 
-//TODO: A changer quand on implémentera les signatures
+// TODO: A changer quand on implémentera les signatures
 func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int, error) {
 	m := make([]byte, 7)
 	setID(m, id)

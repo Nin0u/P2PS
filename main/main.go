@@ -6,6 +6,9 @@ import (
 	"net"
 )
 
+var debug bool = true
+var username string = ""
+
 func recv(conn net.PacketConn) {
 	message := make([]byte, 65535+7) //TODO: + une signature
 
@@ -22,19 +25,19 @@ func recv(conn net.PacketConn) {
 		case NoOp:
 			break
 		case Error:
-			handleError(message, nb_byte, addr_sender)
+			handleError(message)
 			break
 		case Hello:
-			handleHello(message, nb_byte, addr_sender)
+			handleHello(conn, message, nb_byte, addr_sender, username)
 			break
 		case PublicKey:
-			handlePublicKey(message, nb_byte, addr_sender)
+			handlePublicKey(conn, message, nb_byte, addr_sender)
 			break
 		case Root:
-			handleRoot(message, nb_byte, addr_sender)
+			handleRoot(conn, message, nb_byte, addr_sender)
 			break
 		case GetDatum:
-			handleGetDatum(message, nb_byte, addr_sender)
+			handleGetDatum(conn, message, nb_byte, addr_sender)
 			break
 		case NatTraversalRequest:
 			//TODO: Plus Tard
@@ -44,7 +47,7 @@ func recv(conn net.PacketConn) {
 			break
 
 		case ErrorReply:
-			handleErrorReply(message, nb_byte, addr_sender)
+			handleErrorReply(message)
 			break
 		case HelloReply:
 			handleHelloReply(message, nb_byte, addr_sender)
