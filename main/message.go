@@ -107,15 +107,13 @@ func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int, erro
 	return conn.WriteTo(m, addr)
 }
 
-func sendRootReply(conn net.PacketConn, addr net.Addr) (int, error) {
-	m := make([]byte, 7)
-	setID(m, current_id)
+func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int, error) {
+	m := make([]byte, 32+7)
+	setID(m, id)
 
-	//TODO: Potentiellement mutex !
-	current_id++
 	hash := sha256.Sum256([]byte(""))
 
-	setType(m, PublicKeyReply)
+	setType(m, RootReply)
 	setLength(m, 32)
 
 	copy(m[7:7+32], hash[:])
@@ -126,3 +124,40 @@ func sendRootReply(conn net.PacketConn, addr net.Addr) (int, error) {
 
 	return conn.WriteTo(m, addr)
 }
+
+func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error) {
+	m := make([]byte, 7+32)
+	setID(m, current_id)
+
+	//TODO: Potentiellement mutex !
+	current_id++
+
+	setType(m, GetDatum)
+	setLength(m, 32)
+
+	copy(m[7:7+32], hash[:])
+
+	if debug {
+		fmt.Printf("GetDatum : %x\n", m)
+	}
+
+	return conn.WriteTo(m, addr)
+}
+
+func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (int, error) {
+	m := make([]byte, 7+32)
+	setID(m, id)
+
+	setType(m, NoDatum)
+	setLength(m, 32)
+
+	copy(m[7:7+32], hash[:])
+
+	if debug {
+		fmt.Printf("NoDatum : %x\n", m)
+	}
+
+	return conn.WriteTo(m, addr)
+}
+
+//TODO: Datum

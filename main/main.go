@@ -1,5 +1,5 @@
 package main
 
 func main() {
-	sendHello(nil, nil, "Socalin")
+	sendRootReply(nil, nil)
 }
