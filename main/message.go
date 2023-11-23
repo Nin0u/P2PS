@@ -6,8 +6,6 @@ import (
 	"net"
 )
 
-var current_id int32 = 0
-
 const (
 	NoOp                byte = 0
 	Error                    = 1
@@ -25,6 +23,8 @@ const (
 	Datum          = 132
 	NoDatum        = 133
 )
+
+var id = Id{current_id: 0}
 
 func setID(m []byte, id int32) {
 	m[0] = byte((id >> 24) % (1 << 8))
@@ -57,10 +57,9 @@ func getLength(m []byte) uint16 {
 func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 	len := len(name)
 	m := make([]byte, 7+len+4)
-	setID(m, current_id)
+	setID(m, id.get())
 
-	//TODO: Potentiellement mutex sur current_id
-	current_id++
+	id.incr()
 
 	setType(m, Hello)
 	setLength(m, uint16(len+4))
@@ -126,10 +125,9 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int, error) {
 
 func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error) {
 	m := make([]byte, 7+32)
-	setID(m, current_id)
+	setID(m, id.get())
 
-	//TODO: Potentiellement mutex !
-	current_id++
+	id.incr()
 
 	setType(m, GetDatum)
 	setLength(m, 32)
