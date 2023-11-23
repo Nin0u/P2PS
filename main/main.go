@@ -1,9 +1,12 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
+	"time"
 )
 
 var debug bool = true
@@ -66,14 +69,19 @@ func recv(conn net.PacketConn) {
 }
 
 func main() {
-	// conn, err := net.ListenPacket("udp", ":0")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	transport := &*http.DefaultTransport.(*http.Transport)
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   50 * time.Second,
+	}
 
+	conn, err := net.ListenPacket("udp", ":0")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cli(client, conn)
 	// go recv(conn)
-	// appelle au cli
-
-	fmt.Println(id.get())
 
 }
