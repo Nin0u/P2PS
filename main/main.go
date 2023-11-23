@@ -66,11 +66,14 @@ func recv(conn net.PacketConn) {
 }
 
 func main() {
-	conn, err := net.ListenPacket("udp", ":0")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// conn, err := net.ListenPacket("udp", ":0")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	// go recv(conn)
 	// appelle au cli
+
+	fmt.Println(id.get())
+
 }
