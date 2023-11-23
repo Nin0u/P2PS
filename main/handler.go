@@ -28,7 +28,7 @@ func handleHello(conn net.PacketConn, message []byte, nb_byte int, addr_sender n
 	}
 }
 
-func handlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
+func handlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_sender *net.UDPAddr) {
 	_, err := sendPublicKeyReply(conn, addr_sender, getID(message))
 	if err != nil {
 		log.Fatal(err)
@@ -36,7 +36,7 @@ func handlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_send
 	}
 }
 
-func handleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
+func handleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender *net.UDPAddr) {
 	_, err := sendRootReply(conn, addr_sender, getID(message))
 	if err != nil {
 		log.Fatal(err)
@@ -44,7 +44,7 @@ func handleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender ne
 	}
 }
 
-func handleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
+func handleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sender *net.UDPAddr) {
 	hash := message[7 : 7+32]
 	_, err := sendNoDatum(conn, addr_sender, [32]byte(hash), getID(message))
 	if err != nil {
@@ -58,11 +58,11 @@ func handleErrorReply(message []byte) {
 	fmt.Printf("Error :%s\n", message[7:7+len])
 }
 
-func handleHelloReply(message []byte, nb_byte int, addr_sender net.Addr) {
+func handleHelloReply(message []byte, nb_byte int, addr_sender *net.UDPAddr) {
 	return
 }
 
-func handleDatum(message []byte, nb_byte int, addr_sender net.Addr) {
+func handleDatum(message []byte, nb_byte int, addr_sender *net.UDPAddr) {
 	hash := message[7 : 7+32]
 	value := message[7+32 : 7+getLength(message)]
 	check := sha256.Sum256(value)
@@ -76,7 +76,7 @@ func handleDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 	return
 }
 
-func handleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
+func handleNoDatum(message []byte, nb_byte int, addr_sender *net.UDPAddr) {
 	hash := message[7 : 7+32]
 	fmt.Printf("NoDatum for the hash : %x\n", hash)
 	return
