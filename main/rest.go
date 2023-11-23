@@ -20,7 +20,7 @@ func getRequest(c *http.Client, URL string) (*http.Response, error) {
 	return res, err
 }
 
-func getPeers(c *http.Client) ([]string, error) {
+func GetPeers(c *http.Client) ([]string, error) {
 	res, err := getRequest(c, server+peers)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func getPeers(c *http.Client) ([]string, error) {
 	return nil, errors.New("invalid status code")
 }
 
-func getAddresses(c *http.Client, peer string) ([]string, error) {
+func GetAddresses(c *http.Client, peer string) ([]string, error) {
 	res, err := getRequest(c, server+peers+peer+"/addresses")
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func getAddresses(c *http.Client, peer string) ([]string, error) {
 	return nil, errors.New("invalid status code")
 }
 
-func getKey(c *http.Client, peer string) ([]byte, error) {
+func GetKey(c *http.Client, peer string) ([]byte, error) {
 	res, err := getRequest(c, server+peers+peer+"/key")
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func getKey(c *http.Client, peer string) ([]byte, error) {
 	return nil, errors.New("invalid status code")
 }
 
-func getRoot(c *http.Client, peer string) ([]byte, error) {
+func GetRoot(c *http.Client, peer string) ([]byte, error) {
 	res, err := getRequest(c, server+peers+peer+"/root")
 	if err != nil {
 		return nil, err

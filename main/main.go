@@ -12,7 +12,7 @@ import (
 var debug bool = true
 var username string = ""
 
-func recv(conn net.PacketConn) {
+func Recv(conn net.PacketConn) {
 	message := make([]byte, 65535+7) //TODO: + une signature
 
 	for {
@@ -23,47 +23,44 @@ func recv(conn net.PacketConn) {
 			continue
 		}
 
-		t := getType(message)
+		t := GetType(message)
 		switch t {
 		case NoOp:
-			break
+
 		case Error:
-			handleError(message)
-			break
+			HandleError(message)
+
 		case Hello:
-			handleHello(conn, message, nb_byte, addr_sender, username)
-			break
+			HandleHello(conn, message, nb_byte, addr_sender, username)
+
 		case PublicKey:
-			handlePublicKey(conn, message, nb_byte, addr_sender)
-			break
+			HandlePublicKey(conn, message, nb_byte, addr_sender)
+
 		case Root:
-			handleRoot(conn, message, nb_byte, addr_sender)
-			break
+			HandleRoot(conn, message, nb_byte, addr_sender)
+
 		case GetDatum:
-			handleGetDatum(conn, message, nb_byte, addr_sender)
-			break
+			HandleGetDatum(conn, message, nb_byte, addr_sender)
 		case NatTraversalRequest:
 			//TODO: Plus Tard
-			break
+
 		case NatTraversal:
 			//TODO: Plus tard
-			break
 
 		case ErrorReply:
-			handleErrorReply(message)
-			break
+			HandleErrorReply(message)
+
 		case HelloReply:
-			handleHelloReply(message, nb_byte, addr_sender)
-			break
+			HandleHelloReply(message, nb_byte, addr_sender)
+
 		case Datum:
-			handleDatum(message, nb_byte, addr_sender)
-			break
+			HandleDatum(message, nb_byte, addr_sender)
+
 		case NoDatum:
-			handleNoDatum(message, nb_byte, addr_sender)
-			break
+			HandleNoDatum(message, nb_byte, addr_sender)
+
 		default:
 			fmt.Printf("Unknown/Unexpected message type %d\n", t)
-			break
 		}
 	}
 }
