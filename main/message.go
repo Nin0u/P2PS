@@ -8,20 +8,20 @@ import (
 
 const (
 	NoOp                byte = 0
-	Error                    = 1
-	Hello                    = 2
-	PublicKey                = 3
-	Root                     = 4
-	GetDatum                 = 5
-	NatTraversalRequest      = 6
-	NatTraversal             = 7
+	Error               byte = 1
+	Hello               byte = 2
+	PublicKey           byte = 3
+	Root                byte = 4
+	GetDatum            byte = 5
+	NatTraversalRequest byte = 6
+	NatTraversal        byte = 7
 
-	ErrorReply     = 128
-	HelloReply     = 129
-	PublicKeyReply = 130
-	RootReply      = 131
-	Datum          = 132
-	NoDatum        = 133
+	ErrorReply     byte = 128
+	HelloReply     byte = 129
+	PublicKeyReply byte = 130
+	RootReply      byte = 131
+	Datum          byte = 132
+	NoDatum        byte = 133
 )
 
 var id = Id{current_id: 0}
@@ -41,7 +41,7 @@ func setType(m []byte, t byte) {
 	m[4] = t
 }
 
-func getType(m []byte) byte {
+func GetType(m []byte) byte {
 	return m[4]
 }
 

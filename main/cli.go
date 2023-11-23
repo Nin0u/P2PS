@@ -37,22 +37,22 @@ func cli(client *http.Client, conn net.PacketConn) {
 		switch words[0] {
 		case "list":
 			handleList(client)
-			break
+
 		case "addr":
 			handleListAddr(client, words)
-			break
+
 		case "hello":
 			handleSendHello(conn, words)
-			break
+
 		case "root":
 			handleGetRoot(client, words)
-			break
+
 		case "data":
 			handleGetData(conn, words)
-			break
+
 		default:
 			fmt.Println("Unknown command ;-;")
-			break
+
 		}
 		fmt.Fprint(os.Stdout, "$> ")
 
@@ -60,7 +60,7 @@ func cli(client *http.Client, conn net.PacketConn) {
 }
 
 func handleList(client *http.Client) {
-	list, err := getPeers(client)
+	list, err := GetPeers(client)
 	if err != nil {
 		log.Fatal("Erreur getPeers http :", err)
 	}
@@ -77,7 +77,7 @@ func handleListAddr(client *http.Client, words []string) {
 		return
 	}
 
-	list, err := getAddresses(client, words[1])
+	list, err := GetAddresses(client, words[1])
 	if err != nil {
 		log.Fatal("Erreur getAddr http", err)
 	}
@@ -113,7 +113,7 @@ func handleGetRoot(client *http.Client, words []string) {
 		return
 	}
 
-	hash, err := getRoot(client, words[1])
+	hash, err := GetRoot(client, words[1])
 
 	if err != nil {
 		log.Fatal("Erreur getRoot http", err)
