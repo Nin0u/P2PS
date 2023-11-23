@@ -19,11 +19,24 @@ var desc_command = []string{
 	" <addr> <hash>     get the real data of the hash",
 }
 
+func title_print() {
+	fmt.Println(" __        __   _                            _      ")
+	fmt.Println(" \\ \\      / /__| | ___ ___  _ __ ___   ___  | |_ ___  ")
+	fmt.Println("  \\ \\ /\\ / / _ \\ |/ __/ _ \\| '_ ` _ \\ / _ \\ | __/ _ \\ ")
+	fmt.Println("   \\ V  V /  __/ | (_| (_) | | | | | |  __/ | || (_) |")
+	fmt.Println("  __\\_/\\_/_\\___|_|\\___\\___/|_| |_| |_|\\___|  \\__\\___/")
+	fmt.Println(" |  _ \\___ \\|  _ \\/ ___|| |__   ")
+	fmt.Println(" | |_) |__) | |_) \\___ \\| '_ \\ / _` | '__/ _ \\ ")
+	fmt.Println(" |  __// __/|  __/ ___) | | | | (_| | | |  __/")
+	fmt.Println(" |_|  |_____|_|   |____/|_| |_|\\__,_|_|  \\___|")
+}
+
 func cli(client *http.Client, conn net.PacketConn) {
 	sc := bufio.NewScanner(os.Stdin)
 
-	fmt.Printf("Bienvenue dans la super interface ! :)\n")
+	title_print()
 	fmt.Println()
+
 	for i := 0; i < len(list_command); i++ {
 		fmt.Printf("%s %s\n", list_command[i], desc_command[i])
 	}
