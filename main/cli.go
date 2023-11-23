@@ -12,17 +12,18 @@ import (
 
 var list_command = []string{"list", "addr", "hello", "root", "data"}
 var desc_command = []string{
-	"                  list all peers",
-	"<peers>           list addresses",
-	" <addr>           send hello",
-	"<peers>           get root",
-	"<addr> <hash>     get the real data of the hash",
+	"                   list all peers",
+	" <peers>           list addresses",
+	"<addr>            send hello",
+	" <peers>           get root",
+	" <addr> <hash>     get the real data of the hash",
 }
 
 func cli(client *http.Client, conn net.PacketConn) {
 	sc := bufio.NewScanner(os.Stdin)
 
 	fmt.Printf("Bienvenue dans la super interface ! :)\n")
+	fmt.Println()
 	for i := 0; i < len(list_command); i++ {
 		fmt.Printf("%s %s\n", list_command[i], desc_command[i])
 	}
@@ -50,7 +51,7 @@ func cli(client *http.Client, conn net.PacketConn) {
 			handleGetData(conn, words)
 			break
 		default:
-			fmt.Println("Unknown command ;-; \n")
+			fmt.Println("Unknown command ;-;")
 			break
 		}
 		fmt.Fprint(os.Stdout, "$> ")
@@ -88,7 +89,7 @@ func handleListAddr(client *http.Client, words []string) {
 	}
 }
 
-//TODO: Gerer une liste de pair au lieu de faire comme ça
+// TODO: Gerer une liste de pair au lieu de faire comme ça
 func handleSendHello(conn net.PacketConn, words []string) {
 	if len(words) != 2 {
 		fmt.Println("Wrong number of argument !")
@@ -131,7 +132,8 @@ func handleGetData(conn net.PacketConn, words []string) {
 	if err != nil {
 		log.Fatal("Error resolve addr", err)
 	}
-	_, err = sendGetDatum(conn, addr, [32]byte(words[2]))
+
+	_, err = sendGetDatum(conn, addr, [32]byte([]byte(words[2][:32])))
 
 	if err != nil {
 		log.Fatal("Error send hello", err)
