@@ -11,7 +11,7 @@ const server string = "https://jch.irif.fr:8443/"
 const peers string = "peers/"
 
 func getRequest(c *http.Client, URL string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", server+peers, nil)
+	req, err := http.NewRequest("GET", URL, nil)
 	if err != nil {
 		return nil, err
 	}

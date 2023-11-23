@@ -1,6 +1,9 @@
 package main
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 func test_mutex() {
 	var wg sync.WaitGroup
@@ -14,4 +17,6 @@ func test_mutex() {
 		}()
 	}
 	wg.Wait()
+
+	fmt.Printf("id = %d\n", id.get())
 }
