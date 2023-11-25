@@ -10,13 +10,17 @@ import (
 	"strings"
 )
 
-var list_command = []string{"list", "addr", "hello", "root", "data"}
-var desc_command = []string{
-	"                   list all peers",
-	" <peers>           list addresses",
-	"<addr>            send hello",
-	" <peers>           get root",
-	" <addr> <hash>     get the real data of the hash",
+var rest_commands = []string{"list", "addr", "key", "root"}
+var p2p_commands = []string{"hello", "data"}
+var desc_rest_commands = []string{
+	"                        list all peers",
+	"	<peername>           list addresses",
+	" 	<peername>           get public key",
+	" 	<peername>           get root",
+}
+var desc_p2p_commands = []string{
+	" 	<addr>               send hello",
+	" 	<addr> <hash>        get the real data of the hash",
 }
 
 func title_print() {
@@ -31,15 +35,23 @@ func title_print() {
 	fmt.Println(" |_|  |_____|_|   |____/|_| |_|\\__,_|_|  \\___|")
 }
 
+func print_help() {
+	fmt.Println("--------------- REST Commands ---------------")
+	for i := 0; i < len(rest_commands); i++ {
+		fmt.Printf("%s %s\n", rest_commands[i], desc_rest_commands[i])
+	}
+	fmt.Println("\n--------------- P2P Commands ---------------")
+	for i := 0; i < len(p2p_commands); i++ {
+		fmt.Printf("%s %s\n", p2p_commands[i], desc_p2p_commands[i])
+	}
+	fmt.Println("\n(Type help to display this list)")
+}
+
 func cli(client *http.Client, conn net.PacketConn) {
 	sc := bufio.NewScanner(os.Stdin)
-
 	title_print()
 	fmt.Println()
-
-	for i := 0; i < len(list_command); i++ {
-		fmt.Printf("%s %s\n", list_command[i], desc_command[i])
-	}
+	print_help()
 	fmt.Println()
 
 	// Main loop
@@ -62,6 +74,9 @@ func cli(client *http.Client, conn net.PacketConn) {
 
 		case "data":
 			handleGetData(conn, words)
+
+		case "help":
+			print_help()
 
 		default:
 			fmt.Println("Unknown command ;-;")

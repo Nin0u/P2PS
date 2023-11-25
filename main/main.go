@@ -10,7 +10,7 @@ import (
 )
 
 var debug bool = true
-var username string = ""
+var username string = "p2ps"
 
 func Recv(conn net.PacketConn) {
 	message := make([]byte, 65535+7) //TODO: + une signature
@@ -78,7 +78,6 @@ func main() {
 		log.Fatal(err)
 	}
 
+	go Recv(conn)
 	cli(client, conn)
-	// go recv(conn)
-
 }
