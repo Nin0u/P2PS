@@ -49,6 +49,12 @@ func print_help() {
 
 func cli(client *http.Client, conn net.PacketConn) {
 	sc := bufio.NewScanner(os.Stdin)
+
+	fmt.Print("Please enter your username : ")
+	if sc.Scan() {
+		username = sc.Text()
+	}
+
 	title_print()
 	fmt.Println()
 	print_help()
@@ -90,7 +96,7 @@ func cli(client *http.Client, conn net.PacketConn) {
 func handleList(client *http.Client) {
 	list, err := GetPeers(client)
 	if err != nil {
-		log.Fatal("Erreur getPeers http :", err)
+		log.Fatal("Error getPeers http :", err)
 	}
 
 	fmt.Println("Voici la liste des pairs :")
@@ -107,10 +113,10 @@ func handleListAddr(client *http.Client, words []string) {
 
 	list, err := GetAddresses(client, words[1])
 	if err != nil {
-		log.Fatal("Erreur getAddr http", err)
+		log.Fatal("Error getAddr http", err)
 	}
 
-	fmt.Println("Voici la liste des addresses de ", words[1])
+	fmt.Println("Here are the addresses of ", words[1])
 
 	for i := 0; i < len(list); i++ {
 		fmt.Println(list[i])
@@ -144,7 +150,7 @@ func handleGetRoot(client *http.Client, words []string) {
 	hash, err := GetRoot(client, words[1])
 
 	if err != nil {
-		log.Fatal("Erreur getRoot http", err)
+		log.Fatal("Error getRoot http", err)
 	}
 
 	fmt.Printf("%x\n", string(hash))
