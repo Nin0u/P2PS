@@ -12,55 +12,67 @@ import (
 var debug bool = true
 var username string = ""
 
-func Recv(conn net.PacketConn) {
+func Recv(client *http.Client, conn net.PacketConn) {
 	message := make([]byte, 65535+7) //TODO: + une signature
 
 	for {
 		nb_byte, addr_sender, err := conn.ReadFrom(message)
-
 		if err != nil {
-			log.Fatal("rcv error :", err)
+			fmt.Print("rcv error :")
+			fmt.Println(err)
 			continue
 		}
 
 		t := GetType(message)
-		switch t {
-		case NoOp:
 
-		case Error:
-			HandleError(message)
+		// Treat Hello separately because it handles handshake between peers
+		if t == Hello {
+			HandleHello(client, conn, message, nb_byte, addr_sender, username)
+		} else {
+			err = CheckHandShake(addr_sender)
+			if err != nil {
+				if debug {
+					fmt.Println(err)
+				}
+				continue
+			}
 
-		case Hello:
-			HandleHello(conn, message, nb_byte, addr_sender, username)
+			switch t {
+			case NoOp:
 
-		case PublicKey:
-			HandlePublicKey(conn, message, nb_byte, addr_sender)
+			case Error:
+				HandleError(message)
 
-		case Root:
-			HandleRoot(conn, message, nb_byte, addr_sender)
+			case PublicKey:
+				HandlePublicKey(conn, message, nb_byte, addr_sender)
 
-		case GetDatum:
-			HandleGetDatum(conn, message, nb_byte, addr_sender)
-		case NatTraversalRequest:
-			//TODO: Plus Tard
+			case Root:
+				HandleRoot(conn, message, nb_byte, addr_sender)
 
-		case NatTraversal:
-			//TODO: Plus tard
+			case GetDatum:
+				HandleGetDatum(conn, message, nb_byte, addr_sender)
 
-		case ErrorReply:
-			HandleErrorReply(message)
+			case NatTraversalRequest:
+				//TODO: Plus Tard
 
-		case HelloReply:
-			HandleHelloReply(message, nb_byte, addr_sender)
+			case NatTraversal:
+				//TODO: Plus tard
 
-		case Datum:
-			HandleDatum(message, nb_byte, addr_sender)
+			case ErrorReply:
+				HandleErrorReply(message)
 
-		case NoDatum:
-			HandleNoDatum(message, nb_byte, addr_sender)
+			case HelloReply:
+				HandleHelloReply(client, message, nb_byte, addr_sender)
 
-		default:
-			fmt.Printf("Unknown/Unexpected message type %d\n", t)
+			case Datum:
+				HandleDatum(message, nb_byte, addr_sender)
+
+			case NoDatum:
+				HandleNoDatum(message, nb_byte, addr_sender)
+
+			default:
+				fmt.Printf("Unknown/Unexpected message type %d\n", t)
+			}
 		}
 	}
 }
@@ -78,6 +90,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	go Recv(conn)
+	go Recv(client, conn)
 	cli(client, conn)
 }

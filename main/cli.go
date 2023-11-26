@@ -11,7 +11,7 @@ import (
 )
 
 var rest_commands = []string{"list", "addr", "key", "root"}
-var p2p_commands = []string{"hello", "data"}
+var p2p_commands = []string{"hello", "data", "cache"}
 var desc_rest_commands = []string{
 	"                        list all peers",
 	"	<peername>           list addresses",

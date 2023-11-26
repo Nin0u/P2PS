@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 )
 
 // Data type
@@ -21,14 +22,41 @@ func HandleError(message []byte) {
 	fmt.Printf("Error :%s\n", message[7:7+len])
 }
 
-func HandleHello(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr, name string) {
-	if nb_byte < 7+4+1 { // On veut que le sender ait un nom non vide quand même...
+func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr, name string) {
+	if nb_byte < 7+4+1 { // Sender's name is not empty
 		fmt.Println("The sender has no name, the message will be ignored.")
 		return
 	}
 
-	// On renvoie au sender un HelloReply
-	_, err := sendHelloReply(conn, addr_sender, name, getID(message))
+	err := CheckHandShake(addr_sender)
+	if err != nil { // I don't know the peer
+		if debug {
+			fmt.Println(err)
+		}
+
+		len := getLength(message)
+		name_sender := string(message[7+4 : 7+len])
+
+		// Ima ask the server the peer's public key
+		key, err := GetKey(client, name_sender)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		signature := message[7+len:]
+
+		if VerifySignature(key, signature) {
+			Add_cached_peer(Build_peer(message, addr_sender))
+		} else {
+			// TODO : Sinon Send Error ?
+			return
+		}
+
+	}
+
+	// sends HelloReply
+	_, err = sendHelloReply(conn, addr_sender, name, getID(message))
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -38,7 +66,10 @@ func HandleHello(conn net.PacketConn, message []byte, nb_byte int, addr_sender n
 func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	_, err := sendPublicKeyReply(conn, addr_sender, getID(message))
 	if err != nil {
-		log.Fatal(err)
+		if debug {
+			log.Fatal(err)
+		}
+
 		return
 	}
 }
@@ -52,6 +83,7 @@ func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender ne
 }
 
 func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
+
 	hash := message[7 : 7+32]
 	_, err := sendNoDatum(conn, addr_sender, [32]byte(hash), getID(message))
 	if err != nil {
@@ -65,9 +97,36 @@ func HandleErrorReply(message []byte) {
 	fmt.Printf("Error :%s\n", message[7:7+len])
 }
 
-func HandleHelloReply(message []byte, nb_byte int, addr_sender net.Addr) {}
+func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sender net.Addr) {
+	len := getLength(message)
+	name_sender := string(message[7+4 : 7+len])
+
+	// Ima ask the server the peer's public key
+	key, err := GetKey(client, name_sender)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	signature := message[7+len:]
+
+	if VerifySignature(key, signature) {
+		Add_cached_peer(Build_peer(message, addr_sender))
+	} else {
+		// TODO : Sinon Send Error ?
+		return
+	}
+}
 
 func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr) {
+	err := CheckHandShake(addr_sender)
+	if err != nil {
+		if debug {
+			fmt.Println(err)
+		}
+		return
+	}
+
 	hash := message[7 : 7+32]
 	value := message[7+32 : 7+getLength(message)]
 	check := sha256.Sum256(value)
@@ -95,6 +154,20 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 }
 
 func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
+	err := CheckHandShake(addr_sender)
+	if err != nil {
+		if debug {
+			fmt.Println(err)
+		}
+
+		return
+	}
+
 	hash := message[7 : 7+32]
 	fmt.Printf("NoDatum for the hash : %x\n", hash)
+}
+
+// TODO : à déplacer + implémenter
+func VerifySignature([]byte, []byte) bool {
+	return true
 }
