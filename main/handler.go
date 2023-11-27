@@ -28,14 +28,13 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 		return
 	}
 
-	err := CheckHandShake(addr_sender)
-	if err != nil { // I don't know the peer
+	len := getLength(message)
+	name_sender := string(message[7+4 : 7+len])
+	index := FindCachedPeerByName(name_sender)
+	if index == -1 { // I don't know the peer
 		if debug {
-			fmt.Println(err)
+			fmt.Println("Didn't find peer")
 		}
-
-		len := getLength(message)
-		name_sender := string(message[7+4 : 7+len])
 
 		// Ima ask the server the peer's public key
 		key, err := GetKey(client, name_sender)
@@ -50,13 +49,26 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 			Add_cached_peer(Build_peer(message, addr_sender))
 		} else {
 			// TODO : Sinon Send Error ?
+			fmt.Println("Unvalide signature")
+			return
+		}
+
+	} else { // I know the peer
+		signature := message[7+len:]
+		// I have the peer's verification key
+		if VerifySignature(cache_peers[index].PublicKey[:], signature) {
+			// Update his address
+			cache_peers[index].Addr = addr_sender
+		} else {
+			// TODO : Sinon Send Error ?
+			fmt.Println("Unvalide signature")
 			return
 		}
 
 	}
 
 	// sends HelloReply
-	_, err = sendHelloReply(conn, addr_sender, name, getID(message))
+	_, err := sendHelloReply(conn, addr_sender, name, getID(message))
 	if err != nil {
 		log.Fatal(err)
 		return
