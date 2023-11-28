@@ -1,13 +1,17 @@
 package main
 
 import (
+	"net"
 	"sync"
+	"time"
 )
 
 type Reemit struct {
 	mutex sync.Mutex
 	list  []Message
 }
+
+var timeout_reemit, _ = time.ParseDuration("5s")
 
 var reemit_list = Reemit{list: make([]Message, 1)}
 
@@ -36,6 +40,15 @@ func RemoveReemit(id int32) {
 	}
 }
 
-func UpdateReemit() {
-	// TODO
+func UpdateReemit(conn net.PacketConn) {
+	now := time.Now()
+	for i := 0; i < len(reemit_list.list); i++ {
+		if now.Sub(reemit_list.list[i].LastSentTime) > timeout_reemit {
+			reemit_list.list[i].LastSentTime = now
+			reemit_list.list[i].NbReemit++
+
+			// TODO : error ?
+			conn.WriteTo(reemit_list.list[i].build(), reemit_list.list[i].Dest)
+		}
+	}
 }

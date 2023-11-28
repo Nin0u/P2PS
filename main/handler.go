@@ -112,15 +112,29 @@ func HandleErrorReply(message []byte) {
 }
 
 func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sender net.Addr) {
+	// Find if a request with the same id is in reemit list
+	id := getID(message)
+	index_reemit := FindReemitById(id)
+	if index_reemit == -1 {
+		fmt.Printf("No message with id %d in reemit_list\n", id)
+		return
+	}
+
+	// Check if the message has type Hello
+	if reemit_list.list[index_reemit].Type != Hello {
+		fmt.Printf("Expected message to have Hello = 2 type in reemit_list, found %d.\n", reemit_list.list[index_reemit].Type)
+		return
+	}
+	// We have to check signature before removing the message that was reemited
+
 	len := getLength(message)
 	name_sender := string(message[7+4 : 7+len])
-	index := FindCachedPeerByName(name_sender)
-	if index == -1 { // I don't know the peer
-		if debug {
-			fmt.Println("Didn't find peer")
-		}
+	index_peer := FindCachedPeerByName(name_sender)
+	if index_peer == -1 {
+		// I don't know the peer
+		fmt.Println("Didn't find peer. Creating a new one")
 
-		// Ima ask the server the peer's public key
+		// First, ask the server the peer's public key
 		key, err := GetKey(client, name_sender)
 		if err != nil {
 			fmt.Println(err)
@@ -129,8 +143,12 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 
 		signature := message[7+len:]
 
+		// Then verify the signature
 		if VerifySignature(key, signature) {
+			// Add the peer to the cache
 			Add_cached_peer(Build_peer(message, addr_sender))
+			// Remove the reemited message
+			removeCachedPeer(index_reemit)
 		} else {
 			// TODO : Sinon Send Error ?
 			fmt.Println("Unvalide signature")
@@ -140,10 +158,12 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 	} else { // I know the peer
 		signature := message[7+len:]
 		// I have the peer's verification key
-		if VerifySignature(cache_peers.list[index].PublicKey[:], signature) {
+		if VerifySignature(cache_peers.list[index_peer].PublicKey[:], signature) {
 			// Update his address and the timestamp
-			cache_peers.list[index].Addr = addr_sender
-			cache_peers.list[index].LastMessageTime = time.Now()
+			cache_peers.list[index_peer].Addr = addr_sender
+			cache_peers.list[index_peer].LastMessageTime = time.Now()
+			// Remove the reemited message
+			removeCachedPeer(index_reemit)
 		} else {
 			// TODO : Sinon Send Error ?
 			fmt.Println("Unvalide signature")

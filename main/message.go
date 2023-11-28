@@ -9,6 +9,7 @@ import (
 
 type Message struct {
 	Id           int32
+	Dest         net.Addr
 	Type         byte
 	Length       uint16
 	Body         []byte
@@ -80,6 +81,7 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 	len := len(name)
 	message := Message{
 		Id:     id.get(),
+		Dest:   addr,
 		Type:   Hello,
 		Length: uint16(len + 4),
 		Body:   make([]byte, len),
@@ -94,7 +96,9 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 		fmt.Printf("Hello : %x\n", message.build())
 	}
 
-	// TODO : Ajouter le message à la list reemit
+	// Add the message to the reemit list
+	message.LastSentTime = time.Now()
+	AddReemit(message)
 
 	return conn.WriteTo(message.build(), addr)
 }
@@ -103,6 +107,7 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 	len := len(name)
 	message := Message{
 		Id:     id,
+		Dest:   addr,
 		Type:   HelloReply,
 		Length: uint16(len + 4),
 		Body:   make([]byte, len),
@@ -122,6 +127,7 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int, error) {
 	message := Message{
 		Id:     id,
+		Dest:   addr,
 		Type:   PublicKeyReply,
 		Length: 0,
 	}
@@ -136,6 +142,7 @@ func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int, erro
 func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int, error) {
 	message := Message{
 		Id:     id,
+		Dest:   addr,
 		Type:   RootReply,
 		Length: 32,
 		Body:   make([]byte, 32),
@@ -154,6 +161,7 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int, error) {
 func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error) {
 	message := Message{
 		Id:     id.get(),
+		Dest:   addr,
 		Type:   GetDatum,
 		Length: 32,
 		Body:   make([]byte, 32),
@@ -165,7 +173,9 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 		fmt.Printf("GetDatum : %x\n", message.build())
 	}
 
-	// TODO : Ajouter le message à la list reemit
+	// Add the message to the reemit list
+	message.LastSentTime = time.Now()
+	AddReemit(message)
 
 	return conn.WriteTo(message.build(), addr)
 }
@@ -173,6 +183,7 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (int, error) {
 	message := Message{
 		Id:     id,
+		Dest:   addr,
 		Type:   NoDatum,
 		Length: 32,
 		Body:   make([]byte, 32),
