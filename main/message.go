@@ -4,7 +4,18 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"net"
+	"time"
 )
+
+type Message struct {
+	Id           int32
+	Type         byte
+	Length       uint16
+	Body         []byte
+	Signature    []byte
+	LastSentTime time.Time
+	NbReemit     uint8
+}
 
 const (
 	NoOp                byte = 0
@@ -26,28 +37,39 @@ const (
 
 var id = Id{current_id: 0}
 
-func setID(m []byte, id int32) {
-	m[0] = byte((id >> 24) % (1 << 8))
-	m[1] = byte((id >> 16) % (1 << 8))
-	m[2] = byte((id >> 8) % (1 << 8))
-	m[3] = byte(id % (1 << 8))
+func (m *Message) build() []byte {
+	message := make([]byte, 7+m.Length)
+
+	// Write id
+	message[0] = byte((m.Id >> 24) % (1 << 8))
+	message[1] = byte((m.Id >> 16) % (1 << 8))
+	message[2] = byte((m.Id >> 8) % (1 << 8))
+	message[3] = byte(m.Id % (1 << 8))
+
+	// Write type
+	message[4] = m.Type
+
+	// Write length
+	message[5] = byte(m.Length >> 8 % (1 << 8))
+	message[6] = byte(m.Length % (1 << 8))
+
+	// TODO : error ?
+	copy(message[7:], m.Body)
+
+	// Write signature if not nil
+	if m.Signature != nil {
+		message = append(message, m.Signature...)
+	}
+
+	return message
 }
 
 func getID(m []byte) int32 {
 	return int32(m[0])<<24 + int32(m[1])<<16 + int32(m[2])<<8 + int32(m[3])
 }
 
-func setType(m []byte, t byte) {
-	m[4] = t
-}
-
 func GetType(m []byte) byte {
 	return m[4]
-}
-
-func setLength(m []byte, len uint16) {
-	m[5] = byte(len >> 8 % (1 << 8))
-	m[6] = byte(len % (1 << 8))
 }
 
 func getLength(m []byte) uint16 {
@@ -56,105 +78,113 @@ func getLength(m []byte) uint16 {
 
 func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 	len := len(name)
-	m := make([]byte, 7+len+4)
-	setID(m, id.get())
+	message := Message{
+		Id:     id.get(),
+		Type:   Hello,
+		Length: uint16(len + 4),
+		Body:   make([]byte, len),
+	}
 
 	id.incr()
 
-	setType(m, Hello)
-	setLength(m, uint16(len+4))
-
-	copy(m[7+4:7+4+len], name)
+	// TODO : error ?
+	copy(message.Body[4:], name)
 
 	if debug {
-		fmt.Printf("Hello : %x\n", m)
+		fmt.Printf("Hello : %x\n", message.build())
 	}
 
-	return conn.WriteTo(m, addr)
+	// TODO : Ajouter le message à la list reemit
+
+	return conn.WriteTo(message.build(), addr)
 }
 
 func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (int, error) {
 	len := len(name)
-	m := make([]byte, 7+len+4)
-	setID(m, id)
-
-	setType(m, HelloReply)
-	setLength(m, uint16(len+4))
-
-	copy(m[7+4:7+4+len], name)
-
-	if debug {
-		fmt.Printf("HelloReply : %x\n", m)
+	message := Message{
+		Id:     id,
+		Type:   HelloReply,
+		Length: uint16(len + 4),
+		Body:   make([]byte, len),
 	}
 
-	return conn.WriteTo(m, addr)
+	// TODO : error ?
+	copy(message.Body[4:], name)
+
+	if debug {
+		fmt.Printf("HelloReply : %x\n", message.build())
+	}
+
+	return conn.WriteTo(message.build(), addr)
 }
 
 // TODO: A changer quand on implémentera les signatures
 func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int, error) {
-	m := make([]byte, 7)
-	setID(m, id)
-
-	setType(m, PublicKeyReply)
-	setLength(m, 0)
-
-	if debug {
-		fmt.Printf("KeyReply : %x\n", m)
+	message := Message{
+		Id:     id,
+		Type:   PublicKeyReply,
+		Length: 0,
 	}
 
-	return conn.WriteTo(m, addr)
+	if debug {
+		fmt.Printf("KeyReply : %x\n", message.build())
+	}
+
+	return conn.WriteTo(message.build(), addr)
 }
 
 func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int, error) {
-	m := make([]byte, 32+7)
-	setID(m, id)
-
+	message := Message{
+		Id:     id,
+		Type:   RootReply,
+		Length: 32,
+		Body:   make([]byte, 32),
+	}
 	hash := sha256.Sum256([]byte(""))
 
-	setType(m, RootReply)
-	setLength(m, 32)
-
-	copy(m[7:7+32], hash[:])
+	copy(message.Body[:], hash[:])
 
 	if debug {
-		fmt.Printf("RootReply : %x\n", m)
+		fmt.Printf("RootReply : %x\n", message.build())
 	}
 
-	return conn.WriteTo(m, addr)
+	return conn.WriteTo(message.build(), addr)
 }
 
 func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error) {
-	m := make([]byte, 7+32)
-	setID(m, id.get())
-
+	message := Message{
+		Id:     id.get(),
+		Type:   GetDatum,
+		Length: 32,
+		Body:   make([]byte, 32),
+	}
 	id.incr()
-
-	setType(m, GetDatum)
-	setLength(m, 32)
-
-	copy(m[7:7+32], hash[:])
+	copy(message.Body[:], hash[:])
 
 	if debug {
-		fmt.Printf("GetDatum : %x\n", m)
+		fmt.Printf("GetDatum : %x\n", message.build())
 	}
 
-	return conn.WriteTo(m, addr)
+	// TODO : Ajouter le message à la list reemit
+
+	return conn.WriteTo(message.build(), addr)
 }
 
 func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (int, error) {
-	m := make([]byte, 7+32)
-	setID(m, id)
-
-	setType(m, NoDatum)
-	setLength(m, 32)
-
-	copy(m[7:7+32], hash[:])
-
-	if debug {
-		fmt.Printf("NoDatum : %x\n", m)
+	message := Message{
+		Id:     id,
+		Type:   NoDatum,
+		Length: 32,
+		Body:   make([]byte, 32),
 	}
 
-	return conn.WriteTo(m, addr)
+	copy(message.Body[:], hash[:])
+
+	if debug {
+		fmt.Printf("NoDatum : %x\n", message.build())
+	}
+
+	return conn.WriteTo(message.build(), addr)
 }
 
 //TODO: Datum

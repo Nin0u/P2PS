@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -14,7 +15,12 @@ type Peer struct {
 	LastMessageTime time.Time
 }
 
-var cache_peers []Peer = make([]Peer, 1)
+type Cache struct {
+	mutex sync.Mutex
+	list  []Peer
+}
+
+var cache_peers Cache = Cache{list: make([]Peer, 1)}
 
 var timeout, _ = time.ParseDuration("180s")
 
@@ -35,35 +41,41 @@ func Add_cached_peer(p Peer) {
 		if debug {
 			fmt.Printf("Adding %s in cache\n", p.Name)
 		}
-		cache_peers = append(cache_peers[:], p)
+		cache_peers.mutex.Lock()
+		cache_peers.list = append(cache_peers.list[:], p)
+		cache_peers.mutex.Unlock()
 	} else {
 		if debug {
 			fmt.Printf("%s already in cache. Updating its values\n", p.Name)
 		}
-		cache_peers[index] = p
+		cache_peers.mutex.Lock()
+		cache_peers.list[index] = p
+		cache_peers.mutex.Unlock()
 	}
 }
 
 func removeCachedPeer(index int) {
 	if debug {
-		fmt.Printf("Removing %s from cache\n", cache_peers[index].Name)
+		fmt.Printf("Removing %s from cache\n", cache_peers.list[index].Name)
 	}
-	cache_peers = append(cache_peers[:index], cache_peers[index+1:]...)
+	cache_peers.mutex.Lock()
+	cache_peers.list = append(cache_peers.list[:index], cache_peers.list[index+1:]...)
+	cache_peers.mutex.Unlock()
 }
 
 func HandleTimeoutCachePeers() {
 	now := time.Now()
-	for i := 0; i < len(cache_peers); i++ {
-		if now.Sub(cache_peers[i].LastMessageTime) >= timeout {
-			fmt.Printf("%s reached timeout : ", cache_peers[i].Name)
+	for i := 0; i < len(cache_peers.list); i++ {
+		if now.Sub(cache_peers.list[i].LastMessageTime) >= timeout {
+			fmt.Printf("%s reached timeout : ", cache_peers.list[i].Name)
 			removeCachedPeer(i)
 		}
 	}
 }
 
 func FindCachedPeerByName(name string) int {
-	for i := 0; i < len(cache_peers); i++ {
-		if cache_peers[i].Name == name {
+	for i := 0; i < len(cache_peers.list); i++ {
+		if cache_peers.list[i].Name == name {
 			return i
 		}
 	}
@@ -71,8 +83,8 @@ func FindCachedPeerByName(name string) int {
 }
 
 func FindCachedPeerByAddr(addr net.Addr) int {
-	for i := 0; i < len(cache_peers); i++ {
-		if cache_peers[i].Addr == addr {
+	for i := 0; i < len(cache_peers.list); i++ {
+		if cache_peers.list[i].Addr == addr {
 			return i
 		}
 	}
