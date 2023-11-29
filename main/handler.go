@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -184,15 +183,23 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 }
 
 func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.PacketConn) {
-	err := CheckHandShake(addr_sender)
-	if err != nil {
-		if debug {
-			fmt.Println(err)
-		}
+	fmt.Println("Datum Received !")
+
+	// Find if a request with the same id is in reemit list
+	id := getID(message)
+	index_reemit := FindReemitById(id)
+	if index_reemit == -1 {
+		fmt.Printf("No message with id %d in reemit_list\n", id)
 		return
 	}
 
-	fmt.Println("Datum Received !")
+	if reemit_list.list[index_reemit].Type != GetDatum {
+		fmt.Printf("Expected message to have GetDatum = %d type in reemit_list, found %d.\n", GetDatum, reemit_list.list[index_reemit].Type)
+		return
+	}
+
+	// Remove the reemited message
+	RemoveReemit(index_reemit)
 
 	hash := message[7 : 7+32]
 	value := message[7+32 : 7+getLength(message)]
@@ -224,18 +231,24 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 }
 
 func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
-	err := CheckHandShake(addr_sender)
-	if err != nil {
-		if debug {
-			fmt.Println(err)
-		}
-
+	// Find if a request with the same id is in reemit list
+	id := getID(message)
+	index_reemit := FindReemitById(id)
+	if index_reemit == -1 {
+		fmt.Printf("No message with id %d in reemit_list\n", id)
 		return
 	}
 
+	if reemit_list.list[index_reemit].Type != GetDatum {
+		fmt.Printf("Expected message to have GetDatum = %d type in reemit_list, found %d.\n", GetDatum, reemit_list.list[index_reemit].Type)
+		return
+	}
+
+	// Remove the reemited message
+	RemoveReemit(index_reemit)
+
 	hash := message[7 : 7+32]
 	fmt.Printf("NoDatum for the hash : %x\n", hash)
-	os.Exit(1)
 }
 
 // TODO : à déplacer + implémenter
