@@ -92,6 +92,7 @@ func FindCachedPeerByName(name string) int {
 	cache_peers.mutex.Lock()
 	for i := 0; i < len(cache_peers.list); i++ {
 		if cache_peers.list[i].Name == name {
+			cache_peers.mutex.Unlock()
 			return i
 		}
 	}
@@ -103,6 +104,7 @@ func FindCachedPeerByAddr(addr net.Addr) int {
 	cache_peers.mutex.Lock()
 	for i := 0; i < len(cache_peers.list); i++ {
 		if cache_peers.list[i].Addr.String() == addr.String() {
+			cache_peers.mutex.Unlock()
 			return i
 		}
 	}

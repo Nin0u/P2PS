@@ -45,16 +45,19 @@ func FindReemitById(id int32) int32 {
 		fmt.Println("[FindReemitById] id:", id)
 	}
 
+	reemit_list.mutex.Lock()
 	for i := 0; i < len(reemit_list.list); i++ {
 		if reemit_list.list[i].Id == id {
 			if debug_reemit {
 				fmt.Println("[FindReemitById] Found index:", i)
 			}
 
+			reemit_list.mutex.Unlock()
 			return int32(i)
 		}
 	}
 
+	reemit_list.mutex.Unlock()
 	if debug_reemit {
 		fmt.Println("[FindReemitById] Index not found")
 	}
@@ -96,6 +99,7 @@ func UpdateReemit(conn net.PacketConn) {
 	}
 
 	now := time.Now()
+	reemit_list.mutex.Lock()
 	for i := 0; i < len(reemit_list.list); i++ {
 		if now.Sub(reemit_list.list[i].LastSentTime) > timeout_reemit {
 			if debug_reemit {
@@ -109,6 +113,7 @@ func UpdateReemit(conn net.PacketConn) {
 			conn.WriteTo(reemit_list.list[i].build(), reemit_list.list[i].Dest)
 		}
 	}
+	reemit_list.mutex.Lock()
 
 	if debug_reemit {
 		fmt.Println("[UpdateReemit] End")
