@@ -13,6 +13,7 @@ type Peer struct {
 	Addr            net.Addr
 	PublicKey       [64]uint8
 	LastMessageTime time.Time
+	Root            *Node
 }
 
 type Cache struct {
@@ -27,7 +28,7 @@ var timeout, _ = time.ParseDuration("180s")
 func Build_peer(message []byte, addr_sender net.Addr) Peer {
 	len := getLength(message)
 	name_sender := string(message[11 : 7+len])
-	p := Peer{Name: name_sender, Addr: addr_sender, LastMessageTime: time.Now()}
+	p := Peer{Name: name_sender, Addr: addr_sender, LastMessageTime: time.Now(), Root: nil}
 
 	if debug {
 		fmt.Printf("Building a new peer with name %s\n", name_sender)
