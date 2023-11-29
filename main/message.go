@@ -98,7 +98,6 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 
 	// Add the message to the reemit list
 	message.LastSentTime = time.Now()
-	fmt.Println("Message ", message)
 	AddReemit(message)
 
 	return conn.WriteTo(message.build(), addr)

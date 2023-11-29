@@ -184,6 +184,8 @@ func handleGetData(client *http.Client, conn net.PacketConn, words []string) {
 		return
 	}
 
+	fmt.Println("COUCOU")
+
 	//Add the root in the tree
 	//TODO: Maybe uneccessary if we already have it ? Optimization here !
 	cache_peers.list[index_peer].Root = add_node(nil, make([]string, 0), "", [32]byte(hash), DIRECTORY)
