@@ -198,8 +198,7 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 		return
 	}
 
-	// Remove the reemited message
-	RemoveReemit(index_reemit)
+	RemoveReemit(id)
 
 	hash := message[7 : 7+32]
 	value := message[7+32 : 7+getLength(message)]
@@ -244,8 +243,7 @@ func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 		return
 	}
 
-	// Remove the reemited message
-	RemoveReemit(index_reemit)
+	RemoveReemit(id)
 
 	hash := message[7 : 7+32]
 	fmt.Printf("NoDatum for the hash : %x\n", hash)
