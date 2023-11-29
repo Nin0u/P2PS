@@ -84,7 +84,7 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 		Dest:   addr,
 		Type:   Hello,
 		Length: uint16(len + 4),
-		Body:   make([]byte, len),
+		Body:   make([]byte, len+4),
 	}
 
 	id.incr()
@@ -98,6 +98,7 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 
 	// Add the message to the reemit list
 	message.LastSentTime = time.Now()
+	fmt.Println("Message ", message)
 	AddReemit(message)
 
 	return conn.WriteTo(message.build(), addr)
@@ -110,7 +111,7 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 		Dest:   addr,
 		Type:   HelloReply,
 		Length: uint16(len + 4),
-		Body:   make([]byte, len),
+		Body:   make([]byte, len+4),
 	}
 
 	// TODO : error ?

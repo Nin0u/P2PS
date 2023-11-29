@@ -20,7 +20,7 @@ type Cache struct {
 	list  []Peer
 }
 
-var cache_peers Cache = Cache{list: make([]Peer, 1)}
+var cache_peers Cache = Cache{list: make([]Peer, 0)}
 
 var timeout, _ = time.ParseDuration("180s")
 
@@ -30,7 +30,7 @@ func Build_peer(message []byte, addr_sender net.Addr) Peer {
 	p := Peer{Name: name_sender, Addr: addr_sender, LastMessageTime: time.Now()}
 
 	if debug {
-		fmt.Printf("Building a new peer with name %s", name_sender)
+		fmt.Printf("Building a new peer with name %s\n", name_sender)
 	}
 	return p
 }
@@ -52,6 +52,8 @@ func Add_cached_peer(p Peer) {
 		cache_peers.list[index] = p
 		cache_peers.mutex.Unlock()
 	}
+
+	fmt.Println("Peer Cached ", cache_peers.list)
 }
 
 func removeCachedPeer(index int) {
@@ -84,7 +86,7 @@ func FindCachedPeerByName(name string) int {
 
 func FindCachedPeerByAddr(addr net.Addr) int {
 	for i := 0; i < len(cache_peers.list); i++ {
-		if cache_peers.list[i].Addr == addr {
+		if cache_peers.list[i].Addr.String() == addr.String() {
 			return i
 		}
 	}
@@ -92,6 +94,7 @@ func FindCachedPeerByAddr(addr net.Addr) int {
 }
 
 func CheckHandShake(addr_sender net.Addr) error {
+	fmt.Println("Addr_sender : ", addr_sender)
 	index := FindCachedPeerByAddr(addr_sender)
 	if index == -1 {
 		return errors.New("handshake error : peer not cached")

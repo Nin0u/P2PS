@@ -28,6 +28,8 @@ func Recv(client *http.Client, conn net.PacketConn) {
 		// Treat Hello separately because it handles handshake between peers
 		if t == Hello {
 			HandleHello(client, conn, message, nb_byte, addr_sender, username)
+		} else if t == HelloReply {
+			HandleHelloReply(client, message, nb_byte, addr_sender)
 		} else {
 			err = CheckHandShake(addr_sender)
 			if err != nil {
@@ -60,9 +62,6 @@ func Recv(client *http.Client, conn net.PacketConn) {
 
 			case ErrorReply:
 				HandleErrorReply(message)
-
-			case HelloReply:
-				HandleHelloReply(client, message, nb_byte, addr_sender)
 
 			case Datum:
 				HandleDatum(message, nb_byte, addr_sender)

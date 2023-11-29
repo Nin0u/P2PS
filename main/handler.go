@@ -120,10 +120,19 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 		return
 	}
 
+	if debug {
+		fmt.Println("Reemit message found")
+		fmt.Println(reemit_list.list)
+	}
+
 	// Check if the message has type Hello
 	if reemit_list.list[index_reemit].Type != Hello {
 		fmt.Printf("Expected message to have Hello = 2 type in reemit_list, found %d.\n", reemit_list.list[index_reemit].Type)
 		return
+	}
+
+	if debug {
+		fmt.Println("Reemit message has type Hello as expected")
 	}
 	// We have to check signature before removing the message that was reemited
 
@@ -148,10 +157,10 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 			// Add the peer to the cache
 			Add_cached_peer(Build_peer(message, addr_sender))
 			// Remove the reemited message
-			removeCachedPeer(index_reemit)
+			RemoveReemit(index_reemit)
 		} else {
 			// TODO : Sinon Send Error ?
-			fmt.Println("Unvalide signature")
+			fmt.Println("Invalid signature")
 			return
 		}
 
@@ -163,10 +172,10 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 			cache_peers.list[index_peer].Addr = addr_sender
 			cache_peers.list[index_peer].LastMessageTime = time.Now()
 			// Remove the reemited message
-			removeCachedPeer(index_reemit)
+			RemoveReemit(index_reemit)
 		} else {
 			// TODO : Sinon Send Error ?
-			fmt.Println("Unvalide signature")
+			fmt.Println("Invalid signature")
 			return
 		}
 
@@ -224,5 +233,9 @@ func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 
 // TODO : à déplacer + implémenter
 func VerifySignature(key []byte, signature []byte) bool {
+	// Skip checking if no key found
+	if key == nil {
+		return true
+	}
 	return true
 }

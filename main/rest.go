@@ -83,7 +83,7 @@ func GetKey(c *http.Client, peer string) ([]byte, error) {
 		return key, nil
 	}
 	if res.StatusCode == 204 {
-		return nil, errors.New("no key registered")
+		return nil, nil
 	}
 	if res.StatusCode == 404 {
 		return nil, errors.New("unknown peer")

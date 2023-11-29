@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -13,18 +14,19 @@ type Reemit struct {
 
 var timeout_reemit, _ = time.ParseDuration("5s")
 
-var reemit_list = Reemit{list: make([]Message, 1)}
+var reemit_list = Reemit{list: make([]Message, 0)}
 
 func AddReemit(message Message) {
+	fmt.Println("Message in Reemit ", message)
 	reemit_list.mutex.Lock()
-	reemit_list.list = append(reemit_list.list[:], message)
+	reemit_list.list = append(reemit_list.list, message)
 	reemit_list.mutex.Unlock()
 }
 
-func FindReemitById(id int32) int {
+func FindReemitById(id int32) int32 {
 	for i := 0; i < len(reemit_list.list); i++ {
 		if reemit_list.list[i].Id == id {
-			return i
+			return int32(i)
 		}
 	}
 
