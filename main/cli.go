@@ -167,6 +167,7 @@ func handleGetData(conn net.PacketConn, words []string) {
 		log.Fatal("Error resolve addr", err)
 	}
 
+	//TODO: add la struct dans la file
 	_, err = sendGetDatum(conn, addr, [32]byte([]byte(words[2][:32])))
 
 	if err != nil {
