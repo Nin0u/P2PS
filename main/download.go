@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -99,6 +100,10 @@ func download_dl(hash [32]byte, typeFile byte, value []byte, conn net.PacketConn
 		pa := prevReq.Path
 		fmt.Println("Création du dossier :", pa)
 		fmt.Printf("%s|\n", pa)
+		println(len(pa))
+		for i := 0; i < len(pa); i++ {
+			print(pa[i], " ")
+		}
 		err := os.MkdirAll(pa, 0777)
 		if err != nil {
 			fmt.Println("Error mkdir all in download_dl :", err.Error())
@@ -107,9 +112,10 @@ func download_dl(hash [32]byte, typeFile byte, value []byte, conn net.PacketConn
 		}
 
 		fmt.Println("Directory recieved. Contents' hashes are : ")
-		for i := 0; i < len(value); i += 64 {
+		for i := len(value) - 64; i >= 0; i -= 64 {
 			reqDatum.mutex.Lock()
-			name := prevReq.Path + "/" + string(value[i:i+32])
+			name_byte := bytes.TrimRight(value[i:i+32], string(byte(0)))
+			name := prevReq.Path + "/" + string(name_byte)
 			hash_child := value[i+32 : i+64]
 			fmt.Printf("- Name = %s, Hash = %x \n", name, hash_child)
 
@@ -120,7 +126,7 @@ func download_dl(hash [32]byte, typeFile byte, value []byte, conn net.PacketConn
 		}
 	} else if typeFile == TREE {
 		fmt.Println("BigFile recieved. Contents' hashes are : ")
-		for i := 0; i < len(value); i += 32 {
+		for i := len(value) - 32; i >= 0; i -= 32 {
 			hash_child := value[i : i+32]
 			fmt.Printf("- Hash = %x\n", hash_child)
 			req := buildRequestDatum(prevReq.P, prevReq.Path, [32]byte(hash_child), 1)
