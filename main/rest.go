@@ -3,30 +3,49 @@ package main
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 )
 
 const server string = "https://jch.irif.fr:8443/"
 const peers string = "peers/"
+const debug_rest bool = true
 
 func getRequest(c *http.Client, URL string) (*http.Response, error) {
+	if debug_rest {
+		fmt.Println("[getRequest] GET at addr:", URL)
+	}
+
 	req, err := http.NewRequest("GET", URL, nil)
 	if err != nil {
 		return nil, err
 	}
-
 	res, err := c.Do(req)
+
+	if debug_rest {
+		fmt.Println("[getRequest] GET done")
+	}
+
 	return res, err
 }
 
 func GetPeers(c *http.Client) ([]string, error) {
+	if debug_rest {
+		fmt.Println("[GetPeers] Calling getRequest")
+	}
+
 	res, err := getRequest(c, server+peers)
 	if err != nil {
 		return nil, err
 	}
 
-	arr_peers := make([]string, 1)
+	if debug_rest {
+		fmt.Println("[GetPeers] No error on request")
+	}
+
+	// * We're gonna store the peers we got in this array
+	arr_peers := make([]string, 0)
 
 	if res.StatusCode == 200 {
 		scanner := bufio.NewScanner(res.Body)
@@ -37,17 +56,36 @@ func GetPeers(c *http.Client) ([]string, error) {
 			}
 		}
 
+		if debug_rest {
+			fmt.Println("[GetPeers] found peers:", arr_peers)
+		}
+
 		return arr_peers, nil
 	}
+
+	if debug_rest {
+		fmt.Println("[GetPeers] Invalid status code")
+	}
+
 	return nil, errors.New("invalid status code")
 }
 
 func GetAddresses(c *http.Client, peer string) ([]string, error) {
+	if debug_rest {
+		fmt.Println("[GetAddresses] Calling getRequest")
+	}
+
 	res, err := getRequest(c, server+peers+peer+"/addresses")
 	if err != nil {
 		return nil, err
 	}
 
+	// Debug
+	if debug_rest {
+		fmt.Println("[GetAddresses] No error on request")
+	}
+
+	// * We're gonna store the peers we got in this array
 	arr_addr := make([]string, 1)
 
 	if res.StatusCode == 200 {
@@ -59,59 +97,110 @@ func GetAddresses(c *http.Client, peer string) ([]string, error) {
 			}
 		}
 
+		if debug_rest {
+			fmt.Println("[GetAddresses] found addresses:", arr_addr)
+		}
+
 		return arr_addr, nil
 	}
 
 	if res.StatusCode == 404 {
+		if debug_rest {
+			fmt.Println("[GetAddresses] Unknown Peer")
+		}
 		return nil, errors.New("unknown peer")
 	}
 
+	if debug_rest {
+		fmt.Println("[GetAddresses] Invalid status code")
+	}
 	return nil, errors.New("invalid status code")
 }
 
 func GetKey(c *http.Client, peer string) ([]byte, error) {
+	if debug_rest {
+		fmt.Println("[GetKey] Calling getRequest")
+	}
+
 	res, err := getRequest(c, server+peers+peer+"/key")
 	if err != nil {
 		return nil, err
 	}
 
+	if debug_rest {
+		fmt.Println("[GetKey] No error on request")
+	}
+
 	if res.StatusCode == 200 {
 		key, err := io.ReadAll(res.Body)
 		if err != nil {
 			return nil, err
 		}
+
+		if debug_rest {
+			fmt.Printf("[GetKey] found key: %x\n", key)
+		}
 		return key, nil
 	}
 	if res.StatusCode == 204 {
+		if debug_reemit {
+			fmt.Println("[GetKey] No key registered")
+		}
 		return nil, nil
 	}
 	if res.StatusCode == 404 {
+		if debug_rest {
+			fmt.Println("[GetKey] No root registered")
+		}
 		return nil, errors.New("unknown peer")
 	}
 
+	if debug_rest {
+		fmt.Println("[GetKey] Invalid status code")
+	}
 	return nil, errors.New("invalid status code")
 }
 
 func GetRoot(c *http.Client, peer string) ([]byte, error) {
+	if debug_rest {
+		fmt.Println("[GetRoot] Calling getRequest")
+	}
+
 	res, err := getRequest(c, server+peers+peer+"/root")
 	if err != nil {
 		return nil, err
 	}
 
+	if debug_rest {
+		fmt.Println("[GetRoot] No error on request")
+	}
+
 	if res.StatusCode == 200 {
-		key, err := io.ReadAll(res.Body)
+		root, err := io.ReadAll(res.Body)
 		if err != nil {
 			return nil, err
 		}
-		return key, nil
+
+		if debug_rest {
+			fmt.Printf("[GetRoot] found root: %x\n", root)
+		}
+		return root, nil
 	}
 	if res.StatusCode == 204 {
-		return nil, errors.New("no root registered")
+		if debug_rest {
+			fmt.Println("[GetRoot] No root registered")
+		}
+		return nil, nil
 	}
 	if res.StatusCode == 404 {
+		if debug_rest {
+			fmt.Println("[GetRoot] Unknown peer")
+		}
 		return nil, errors.New("unknown peer")
 	}
 
+	if debug_rest {
+		fmt.Println("[GetRoot] Invalid status code")
+	}
 	return nil, errors.New("invalid status code")
-
 }
