@@ -64,7 +64,7 @@ func Recv(client *http.Client, conn net.PacketConn) {
 				HandleErrorReply(message)
 
 			case Datum:
-				HandleDatum(message, nb_byte, addr_sender)
+				HandleDatum(message, nb_byte, addr_sender, conn)
 
 			case NoDatum:
 				HandleNoDatum(message, nb_byte, addr_sender)

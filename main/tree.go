@@ -6,16 +6,17 @@ type Node struct {
 	type_file byte
 	hash      [32]byte
 	name      string // ->
-	children  [32]*Node
+	children  []*Node
 }
 
 func add_node(n *Node, path []string, name string, hash [32]byte, type_file byte) *Node {
+	fmt.Println(path)
 	if n == nil {
-		return &Node{type_file: type_file, hash: hash, name: name, children: [32]*Node(make([]*Node, 32))}
+		return &Node{type_file: type_file, hash: hash, name: name, children: []*Node(make([]*Node, 0))}
 	}
 
 	if len(path) == 1 {
-		n.children[len(n.children)-1] = add_node(n.children[len(n.children)-1], path[1:], name, hash, type_file)
+		n.children = append(n.children, add_node(nil, path[1:], name, hash, type_file))
 		return n
 	}
 
@@ -37,7 +38,7 @@ func print_node(n *Node) {
 
 		for i := 0; i < len(n.children); i++ {
 			if n.children[i].type_file == DIRECTORY {
-				print_node(n)
+				print_node(n.children[i])
 			}
 		}
 	}

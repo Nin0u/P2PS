@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -182,7 +183,7 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 	}
 }
 
-func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr) {
+func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.PacketConn) {
 	err := CheckHandShake(addr_sender)
 	if err != nil {
 		if debug {
@@ -190,6 +191,8 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 		}
 		return
 	}
+
+	fmt.Println("Datum Received !")
 
 	hash := message[7 : 7+32]
 	value := message[7+32 : 7+getLength(message)]
@@ -199,21 +202,24 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 		return
 	}
 
-	switch value[0] {
-	case CHUNK:
-		fmt.Printf("Chunk recieved : %x\n", value[1:])
-	case TREE:
-		fmt.Println("Tree recieved. Children's hashes are : ")
-		for i := 1; i < len(value); i += 32 {
-			fmt.Printf("- %x\n", value[i:i+32])
-		}
-	case DIRECTORY:
-		fmt.Println("Directory recieved. Contents' hashes are : ")
-		for i := 1; i < len(value); i += 64 {
-			fmt.Printf("- Name = %x, Hash = %x \n", value[i:i+32], value[i+32:i+63])
-		}
-	default:
-		fmt.Printf("Undefined data type : %d\n", value[0])
+	index := FindCachedPeerByAddr(addr_sender)
+	if index == -1 {
+		fmt.Println("Don't find Peer !")
+		return
+	}
+
+	reqDatum.mutex.Lock()
+	if reqDatum.list[0].P != cache_peers.list[index] {
+		fmt.Println("Unexpected Peer !")
+		reqDatum.mutex.Unlock()
+		return
+	}
+	reqDatum.mutex.Unlock()
+
+	if reqDatum.list[0].TypeReq == 0 {
+		download_list([32]byte(hash), value[0], value[1:], conn)
+	} else if reqDatum.list[0].TypeReq == 1 {
+		download_dl([32]byte(hash), value[0], value[1:], conn)
 	}
 }
 
@@ -229,6 +235,7 @@ func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 
 	hash := message[7 : 7+32]
 	fmt.Printf("NoDatum for the hash : %x\n", hash)
+	os.Exit(1)
 }
 
 // TODO : à déplacer + implémenter
