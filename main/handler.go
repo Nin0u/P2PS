@@ -239,6 +239,14 @@ func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 
 	hash := message[7 : 7+32]
 	fmt.Printf("NoDatum for the hash : %x\n", hash)
+
+	AddDatumCache([32]byte(hash), nil)
+
+	//Wake up the thread who needs it
+	wg, ok := GetSyncMap(id)
+	if ok {
+		wg.Done()
+	}
 }
 
 // TODO : à déplacer + implémenter
