@@ -7,7 +7,11 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
+	"time"
 )
+
+var server_name_peer string = "jch.irif.fr"
 
 var rest_commands = []string{"list", "addr", "key", "root"}
 var p2p_commands = []string{"hello", "data", "data_dl"}
@@ -60,6 +64,8 @@ func cli(client *http.Client, conn net.PacketConn) {
 	print_help()
 	fmt.Println()
 
+	start(client, conn)
+
 	// Main loop
 	fmt.Fprint(os.Stdout, "$> ")
 	for sc.Scan() {
@@ -94,6 +100,31 @@ func cli(client *http.Client, conn net.PacketConn) {
 		fmt.Fprint(os.Stdout, "$> ")
 
 	}
+}
+
+func start(client *http.Client, conn net.PacketConn) {
+	addr_list, err := GetAddresses(client, server_name_peer)
+	if err != nil {
+		fmt.Println("Error getAddr on server:", err.Error())
+		return
+	}
+
+	//TODO: Trier la liste des addr pour voir celle qui ne marche pas
+	//We can do it with the function at the bottom of this file :
+	//			we launch sendHello and wait during some time and if we get to the timeout, we test another one
+	//Here I suppose that the first addr works but it's not really sure
+	addr, err := net.ResolveUDPAddr("udp", addr_list[1])
+	if err != nil {
+		fmt.Println("Error resolve addr", err.Error())
+		return
+	}
+
+	_, err = sendHello(conn, addr, username)
+	if err != nil {
+		fmt.Println("Error send hello :", err.Error())
+		return
+	}
+
 }
 
 func handleList(client *http.Client) {
@@ -169,81 +200,100 @@ func handleGetData(client *http.Client, conn net.PacketConn, words []string) {
 		fmt.Println("Wrong number of argument !")
 		return
 	}
+	//TODO: SendHello
 
-	//Get the hash of the root
-	hash, err := GetRoot(client, words[1])
+	index := FindCachedPeerByName(words[1])
+	if index == -1 {
+		fmt.Println("Peer not found")
+		return
+	}
+
+	p := &cache_peers.list[index]
+	hash, err := GetRoot(client, p.Name)
 	if err != nil {
-		fmt.Print("Error getRoot : ", err.Error())
+		fmt.Println("Error getRoot :", err.Error())
 		return
 	}
 
-	//Get the peers and need to be register in the cache
-	index_peer := FindCachedPeerByName(words[1])
-	if index_peer == -1 {
-		fmt.Println("This peer is not cached ! Please send hello first")
-		return
+	fmt.Println("Hash GetRoot =", hash)
+	if p.Root != nil {
+		fmt.Println("Hash Root    =", p.Root.Hash)
+	}
+	if p.Root == nil || [32]byte(hash) != p.Root.Hash {
+		fmt.Println("(Re)explore")
+		p.Root = BuildNode(p.Name, [32]byte(hash), DIRECTORY)
+		explore(conn, p)
 	}
 
-	fmt.Println("COUCOU")
-
-	//Add the root in the tree
-	//TODO: Maybe uneccessary if we already have it ? Optimization here !
-	cache_peers.list[index_peer].Root = add_node(nil, make([]string, 0), "", [32]byte(hash), DIRECTORY)
-
-	//Add the request datum to the list of reqDatum
-	req := buildRequestDatum(cache_peers.list[index_peer], "", [32]byte(hash), 0)
-	reqDatum.mutex.Lock()
-	reqDatum.list = append(reqDatum.list, req)
-	reqDatum.mutex.Unlock()
-
-	//Send the first getDatum()
-	_, err = sendGetDatum(conn, cache_peers.list[index_peer].Addr, [32]byte(hash))
-	if err != nil {
-		fmt.Println("Error sendGetDatum : ", err.Error())
-		clearRequestDatum()
-		return
-	}
-
-	fmt.Println("GetDatum launched !")
+	PrintNode(p.Root, "")
 }
 
 func handleGetDataDL(client *http.Client, conn net.PacketConn, words []string) {
-	if len(words) != 2 {
+	if len(words) != 2 && len(words) != 3 {
 		fmt.Println("Wrong number of argument !")
 		return
 	}
+	//TODO: SendHello
 
-	//Get the hash of the root
-	hash, err := GetRoot(client, words[1])
+	index := FindCachedPeerByName(words[1])
+	if index == -1 {
+		fmt.Println("Peer not found")
+		return
+	}
+
+	p := &cache_peers.list[index]
+
+	hash, err := GetRoot(client, p.Name)
 	if err != nil {
-		fmt.Print("Error getRoot : ", err.Error())
+		fmt.Println("Error getRoot :", err.Error())
 		return
 	}
 
-	//Get the peers and need to be register in the cache
-	index_peer := FindCachedPeerByName(words[1])
-	if index_peer == -1 {
-		fmt.Println("This peer is not cached ! Please send hello first")
+	if p.Root == nil || p.Root.Hash != [32]byte(hash) {
+		fmt.Println("Update du tree ! (Relancer le download)")
+		p.Root = BuildNode(p.Name, [32]byte(hash), DIRECTORY)
+		explore(conn, p)
+		PrintNode(p.Root, "")
 		return
 	}
 
-	//Add the root in the tree
-	//TODO: Maybe uneccessary if we already have it ? Optimization here !
-	//cache_peers.list[index_peer].Root = add_node(nil, make([]string, 0), "", [32]byte(hash), DIRECTORY)
-
-	//Add the request datum to the list of reqDatum
-	req := buildRequestDatum(cache_peers.list[index_peer], cache_peers.list[index_peer].Name, [32]byte(hash), 1)
-	reqDatum.mutex.Lock()
-	reqDatum.list = append(reqDatum.list, req)
-	reqDatum.mutex.Unlock()
-
-	//Send the first getDatum()
-	_, err = sendGetDatum(conn, cache_peers.list[index_peer].Addr, [32]byte(hash))
-	if err != nil {
-		fmt.Println("Error sendGetDatum : ", err.Error())
-		clearRequestDatum()
-		return
+	if len(words) == 3 {
+		path := strings.Split(words[2], "/")
+		start_hash, err := FindPath(p.Root, path[1:])
+		if err != nil {
+			fmt.Println("Error FindPath :", err.Error())
+			return
+		}
+		if len(path) > 1 {
+			real_path := strings.Join(path[:len(path)-1], "/")
+			fmt.Println("Real path :", real_path)
+			err = os.MkdirAll(real_path, os.ModePerm)
+			if err != nil {
+				fmt.Println("Error mkdir all handle dl :", err.Error())
+				return
+			}
+		}
+		download(conn, p, start_hash, strings.Join(path, "/"))
+	} else {
+		download(conn, p, [32]byte(hash), p.Name)
 	}
 
-	fmt.Println("GetDatum launched !")
+	fmt.Println("END !")
+}
+
+// ! Code found on https://stackoverflow.com/questions/32840687/timeout-for-waitgroup-wait/32840688#32840688
+// waitTimeout waits for the waitgroup for the specified max timeout.
+// Returns true if waiting timed out.
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		return false // completed normally
+	case <-time.After(timeout):
+		return true // timed out
+	}
 }

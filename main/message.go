@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -77,7 +78,7 @@ func getLength(m []byte) uint16 {
 	return uint16(m[5])<<8 + uint16(m[6])
 }
 
-func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
+func sendHello(conn net.PacketConn, addr net.Addr, name string) (int32, error) {
 	len := len(name)
 	message := Message{
 		Id:     id.get(),
@@ -100,10 +101,11 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 	message.LastSentTime = time.Now()
 	AddReemit(message)
 
-	return conn.WriteTo(message.build(), addr)
+	_, err := conn.WriteTo(message.build(), addr)
+	return message.Id, err
 }
 
-func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (int, error) {
+func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (int32, error) {
 	len := len(name)
 	message := Message{
 		Id:     id,
@@ -120,11 +122,12 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 		fmt.Printf("HelloReply : %x\n", message.build())
 	}
 
-	return conn.WriteTo(message.build(), addr)
+	_, err := conn.WriteTo(message.build(), addr)
+	return message.Id, err
 }
 
 // TODO: A changer quand on implémentera les signatures
-func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int, error) {
+func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {
 	message := Message{
 		Id:     id,
 		Dest:   addr,
@@ -136,10 +139,11 @@ func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int, erro
 		fmt.Printf("KeyReply : %x\n", message.build())
 	}
 
-	return conn.WriteTo(message.build(), addr)
+	_, err := conn.WriteTo(message.build(), addr)
+	return message.Id, err
 }
 
-func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int, error) {
+func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {
 	message := Message{
 		Id:     id,
 		Dest:   addr,
@@ -155,10 +159,11 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int, error) {
 		fmt.Printf("RootReply : %x\n", message.build())
 	}
 
-	return conn.WriteTo(message.build(), addr)
+	_, err := conn.WriteTo(message.build(), addr)
+	return message.Id, err
 }
 
-func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error) {
+func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, wg *sync.WaitGroup) (int32, error) {
 	message := Message{
 		Id:     id.get(),
 		Dest:   addr,
@@ -177,10 +182,15 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 	message.LastSentTime = time.Now()
 	AddReemit(message)
 
-	return conn.WriteTo(message.build(), addr)
+	if wg != nil {
+		SetSyncMap(message.Id, wg)
+	}
+
+	_, err := conn.WriteTo(message.build(), addr)
+	return message.Id, err
 }
 
-func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (int, error) {
+func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (int32, error) {
 	message := Message{
 		Id:     id,
 		Dest:   addr,
@@ -195,7 +205,8 @@ func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (i
 		fmt.Printf("NoDatum : %x\n", message.build())
 	}
 
-	return conn.WriteTo(message.build(), addr)
+	_, err := conn.WriteTo(message.build(), addr)
+	return message.Id, err
 }
 
 //TODO: Datum

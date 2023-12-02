@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type Node struct {
 	FileType byte
@@ -9,28 +12,38 @@ type Node struct {
 	Children []*Node
 }
 
-func add_node(n *Node, path []string, name string, hash [32]byte, type_file byte) *Node {
-	fmt.Println(path)
-	if n == nil {
-		return &Node{FileType: type_file, Hash: hash, Name: name, Children: []*Node(make([]*Node, 0))}
-	}
+func BuildNode(name string, hash [32]byte, type_file byte) *Node {
+	return &Node{FileType: type_file, Hash: hash, Name: name, Children: []*Node(make([]*Node, 0))}
+}
 
+// Return false no change
+// Return true if change
+func AddNode(n *Node, path []string, name string, hash [32]byte, type_file byte) bool {
 	if len(path) == 1 {
-		n.Children = append(n.Children, add_node(nil, path[1:], name, hash, type_file))
-		return n
+		for i := 0; i < len(n.Children); i++ {
+			if n.Children[i].Name == name {
+				if n.Children[i].Hash == hash {
+					return false
+				} else {
+					n.Children[i] = BuildNode(name, hash, type_file)
+					return true
+				}
+			}
+		}
+		n.Children = append(n.Children, BuildNode(name, hash, type_file))
+		return true
 	}
 
 	for i := 0; i < len(n.Children); i++ {
 		if n.Children[i].Name == path[0] {
-			n.Children[i] = add_node(n.Children[i], path[1:], name, hash, type_file)
-			break
+			return AddNode(n.Children[i], path[1:], name, hash, type_file)
 		}
 	}
-	return n
+	return false
 }
 
-func print_node(n *Node) {
-	fmt.Println(n.Name, ": ")
+func PrintNode(n *Node, prefix string) {
+	fmt.Println(prefix+n.Name, ": ")
 	if n.FileType == DIRECTORY {
 		for i := 0; i < len(n.Children); i++ {
 			fmt.Println(" - ", n.Children[i].Name)
@@ -38,9 +51,23 @@ func print_node(n *Node) {
 
 		for i := 0; i < len(n.Children); i++ {
 			if n.Children[i].FileType == DIRECTORY {
-				print_node(n.Children[i])
+				PrintNode(n.Children[i], prefix+n.Name+"/")
 			}
 		}
 	}
 
+}
+
+func FindPath(n *Node, path []string) ([32]byte, error) {
+	if len(path) == 0 {
+		return n.Hash, nil
+	}
+
+	for i := 0; i < len(n.Children); i++ {
+		if n.Children[i].Name == path[0] {
+			return FindPath(n.Children[i], path[1:])
+		}
+	}
+
+	return n.Hash, errors.New("Not Found")
 }

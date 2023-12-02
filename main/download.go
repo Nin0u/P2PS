@@ -9,168 +9,191 @@ import (
 	"sync"
 )
 
+// Keys are Hash, Value are the value in the getDatum request
+type DatumCache struct {
+	content map[[32]byte][]byte
+	mutex   sync.Mutex
+}
+
+var datumCache DatumCache = DatumCache{content: make(map[[32]byte][]byte)}
+
+// TODO: mettre un timeout avec time.AfterFunc pour vider le cache
+// TODO: verifier que le cache est pas trop gros
+func AddDatumCache(hash [32]byte, value []byte) {
+	datumCache.mutex.Lock()
+	datumCache.content[hash] = value
+	datumCache.mutex.Unlock()
+}
+
+func GetDatumCache(hash [32]byte) ([]byte, bool) {
+	datumCache.mutex.Lock()
+	value, ok := datumCache.content[hash]
+	datumCache.mutex.Unlock()
+	return value, ok
+}
+
+func PrintDatumCache() {
+	println("Cache :")
+	for k, v := range datumCache.content {
+		fmt.Println(k, v)
+	}
+}
+
 type RequestDatum struct {
-	P       Peer
-	Path    string
-	Hash    [32]byte
-	TypeReq byte // 0 -> List les nom seulement, 1 -> download pour de vrai
+	Path  string
+	Hash  [32]byte
+	Count int64
 }
 
-type ListRequestDatum struct {
-	mutex sync.Mutex
-	list  []RequestDatum
+func buildRequestDatum(path string, hash [32]byte, count int64) RequestDatum {
+	return RequestDatum{Path: path, Hash: hash, Count: count}
 }
 
-var reqDatum ListRequestDatum = ListRequestDatum{list: make([]RequestDatum, 0)}
+func RecupDatum(conn net.PacketConn, req *RequestDatum, p *Peer) []byte {
+	//Recup the Datum
+	value, ok := GetDatumCache(req.Hash)
 
-func buildRequestDatum(p Peer, path string, hash [32]byte, typeReq byte) RequestDatum {
-	return RequestDatum{P: p, Path: path, Hash: hash, TypeReq: typeReq}
-}
+	for j := 0; !ok && j < 5; j++ {
+		fmt.Println("Send GET DATUM : " + req.Path)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		id, err := sendGetDatum(conn, p.Addr, req.Hash, &wg)
 
-func clearRequestDatum() {
-	reqDatum.mutex.Lock()
-	reqDatum.list = make([]RequestDatum, 0) //On vide au cas où
-	reqDatum.mutex.Unlock()
-}
-
-func download_list(hash [32]byte, typeFile byte, value []byte, conn net.PacketConn) {
-
-	//Pop le premier element
-	reqDatum.mutex.Lock()
-	prevReq := reqDatum.list[0]
-	reqDatum.list = reqDatum.list[1:]
-	reqDatum.mutex.Unlock()
-
-	if typeFile == DIRECTORY {
-		fmt.Println("Directory recieved. Contents' hashes are : ")
-		for i := 0; i < len(value); i += 64 {
-			//Debug
-			reqDatum.mutex.Lock()
-			name := prevReq.Path + "/" + string(value[i:i+32])
-			hash_child := value[i+32 : i+64]
-			fmt.Printf("- Name = %s, Hash = %x \n", name, hash_child)
-
-			//Add for the next getDatum()
-			req := buildRequestDatum(prevReq.P, name, [32]byte(hash_child), 0)
-			reqDatum.list = append([]RequestDatum{req}, reqDatum.list...)
-			reqDatum.mutex.Unlock()
-		}
-	}
-
-	//Add the element in the tree
-	reqDatum.mutex.Lock()
-	path := strings.Split(prevReq.Path, "/")
-	prevReq.P.Root = add_node(prevReq.P.Root, path[1:], path[len(path)-1], [32]byte(hash), typeFile)
-	root := prevReq.P.Root
-
-	//Si c'est fini on print
-	if len(reqDatum.list) == 0 {
-		print_node(root)
-		fmt.Println("END !!!!!")
-		reqDatum.mutex.Unlock()
-		return
-	}
-
-	for i := 0; i < len(reqDatum.list); i++ {
-		fmt.Println(reqDatum.list[i].Path)
-	}
-
-	//Sinon on continue avec le prochain envoie
-	_, err := sendGetDatum(conn, reqDatum.list[0].P.Addr, reqDatum.list[0].Hash)
-	if err != nil {
-		fmt.Println("Error sendGetDatum in download_list : ", err.Error())
-		reqDatum.mutex.Unlock()
-		clearRequestDatum()
-		return
-	}
-
-	reqDatum.mutex.Unlock()
-}
-
-// TODO: store in tree peers the data !
-func download_dl(hash [32]byte, typeFile byte, value []byte, conn net.PacketConn) {
-	//Pop le premier element
-	reqDatum.mutex.Lock()
-	prevReq := reqDatum.list[0]
-	reqDatum.list = reqDatum.list[1:]
-	reqDatum.mutex.Unlock()
-
-	if typeFile == DIRECTORY {
-		//On créer le dossier
-		pa := prevReq.Path
-		fmt.Println("Création du dossier :", pa)
-		fmt.Printf("%s|\n", pa)
-		println(len(pa))
-		for i := 0; i < len(pa); i++ {
-			print(pa[i], " ")
-		}
-		err := os.MkdirAll(pa, 0777)
 		if err != nil {
-			fmt.Println("Error mkdir all in download_dl :", err.Error())
-			clearRequestDatum()
+			fmt.Println("[RecupDatum] Error send getDatum")
+			return nil
+		}
+
+		wg.Wait() //TODO: Timeout peut etre pour éviter de bloquer indéfiniment
+		DeleteSyncMap(id)
+		value, ok = GetDatumCache(req.Hash)
+	}
+
+	if !ok {
+		fmt.Println("[RecupDatum] Error on get datum " + req.Path)
+		return nil
+	}
+
+	if value == nil {
+		fmt.Println("[RecupDatum] No Datum, Stop here")
+		return nil
+	}
+
+	return value
+}
+
+func explore(conn net.PacketConn, p *Peer) {
+	reqDatum := make([]RequestDatum, 0)
+	reqDatum = append(reqDatum, buildRequestDatum(p.Name, p.Root.Hash, 0))
+
+	for len(reqDatum) != 0 {
+
+		//Pop the last element
+		req := reqDatum[len(reqDatum)-1]
+		reqDatum = reqDatum[:len(reqDatum)-1]
+
+		//Recup the Datum
+		value := RecupDatum(conn, &req, p)
+		//Error
+		if value == nil {
 			return
 		}
 
-		fmt.Println("Directory recieved. Contents' hashes are : ")
-		for i := len(value) - 64; i >= 0; i -= 64 {
-			reqDatum.mutex.Lock()
-			name_byte := bytes.TrimRight(value[i:i+32], string(byte(0)))
-			name := prevReq.Path + "/" + string(name_byte)
-			hash_child := value[i+32 : i+64]
-			fmt.Printf("- Name = %s, Hash = %x \n", name, hash_child)
+		typeFile := value[0]
+		value = value[1:]
 
-			//Add for the next getDatum()
-			req := buildRequestDatum(prevReq.P, name, [32]byte(hash_child), 1)
-			reqDatum.list = append([]RequestDatum{req}, reqDatum.list...)
-			reqDatum.mutex.Unlock()
+		// Add the data in the tree
+		fmt.Println("[Explore] Data from " + req.Path + " received !")
+		pa := strings.Split(req.Path, "/")
+		if p.Root.Hash != req.Hash {
+			change := AddNode(p.Root, pa[1:], pa[len(pa)-1], req.Hash, typeFile)
+			if !change {
+				continue
+			}
 		}
-	} else if typeFile == TREE {
-		fmt.Println("BigFile recieved. Contents' hashes are : ")
-		for i := len(value) - 32; i >= 0; i -= 32 {
-			hash_child := value[i : i+32]
-			fmt.Printf("- Hash = %x\n", hash_child)
-			req := buildRequestDatum(prevReq.P, prevReq.Path, [32]byte(hash_child), 1)
-			reqDatum.mutex.Lock()
-			reqDatum.list = append([]RequestDatum{req}, reqDatum.list...)
-			reqDatum.mutex.Unlock()
+
+		// If it's directory, need to explore its children
+		if typeFile == DIRECTORY {
+			fmt.Println("[Explore] Directory received !")
+
+			for i := len(value) - 64; i >= 0; i -= 64 {
+				name := string(bytes.TrimRight(value[i:i+32], string(byte(0))))
+				hash := value[i+32 : i+64]
+				path := req.Path + "/" + name
+				fmt.Println(path)
+
+				reqDatum = append(reqDatum, RequestDatum{Path: path, Hash: [32]byte(hash), Count: 0})
+			}
+
+		} else {
+			fmt.Println("[Explore] File received")
 		}
-	} else if typeFile == CHUNK {
-		file, err := os.OpenFile(prevReq.Path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, os.ModePerm)
-		if err != nil {
-			fmt.Println("Error os.OpenFile : ", err.Error())
-			clearRequestDatum()
+
+	}
+}
+
+func download(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path string) {
+	reqDatum := make([]RequestDatum, 0)
+	reqDatum = append(reqDatum, buildRequestDatum(start_path, first_hash, 0))
+
+	for len(reqDatum) != 0 {
+		//Pop the last element
+		req := reqDatum[len(reqDatum)-1]
+		reqDatum = reqDatum[:len(reqDatum)-1]
+
+		//Recup the Datum
+		value := RecupDatum(conn, &req, p)
+		//Error
+		if value == nil {
 			return
 		}
 
-		file.Write(value)
-		file.Close()
-	} else {
-		fmt.Println("Unknown type file !")
-		clearRequestDatum()
-		return
+		typeFile := value[0]
+		value = value[1:]
+
+		if typeFile == DIRECTORY {
+			fmt.Println("[Download] Directory received !")
+			err := os.MkdirAll(req.Path, os.ModePerm)
+			if err != nil {
+				fmt.Println("Error mkdir all :", err.Error())
+			}
+			for i := len(value) - 64; i >= 0; i -= 64 {
+				name := string(bytes.TrimRight(value[i:i+32], string(byte(0))))
+				hash := value[i+32 : i+64]
+				path := req.Path + "/" + name
+				fmt.Println(path)
+
+				reqDatum = append(reqDatum, RequestDatum{Path: path, Hash: [32]byte(hash), Count: 0})
+			}
+
+		} else if typeFile == TREE {
+			fmt.Println("[Download] BigFile received !")
+
+			for i := len(value) - 32; i >= 0; i -= 32 {
+				hash := value[i : i+32]
+				reqDatum = append(reqDatum, RequestDatum{Path: req.Path, Hash: [32]byte(hash), Count: req.Count})
+			}
+
+		} else if typeFile == CHUNK {
+
+			file, err := os.OpenFile(req.Path, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+			if err != nil {
+				fmt.Println("Error open file :", err.Error())
+				return
+			}
+			_, err = file.WriteAt(value, req.Count)
+			if err != nil {
+				fmt.Println("Error writeAt :", err.Error())
+				return
+			}
+
+			if len(reqDatum) > 0 && reqDatum[len(reqDatum)-1].Path == req.Path {
+				reqDatum[len(reqDatum)-1].Count = req.Count + int64(len(value))
+			}
+
+		} else {
+			fmt.Println("Error : unknown file type !")
+			return
+		}
 	}
-
-	reqDatum.mutex.Lock()
-	//Si c'est fini on print
-	if len(reqDatum.list) == 0 {
-		fmt.Println("END !!!!!")
-		reqDatum.mutex.Unlock()
-		return
-	}
-
-	for i := 0; i < len(reqDatum.list); i++ {
-		fmt.Println(reqDatum.list[i].Path, " : ", reqDatum.list[i].Hash)
-	}
-
-	//Sinon on continue avec le prochain envoie
-	_, err := sendGetDatum(conn, reqDatum.list[0].P.Addr, reqDatum.list[0].Hash)
-	if err != nil {
-		fmt.Println("Error sendGetDatum in download_dl : ", err.Error())
-		reqDatum.mutex.Unlock()
-		clearRequestDatum()
-		return
-	}
-
-	reqDatum.mutex.Unlock()
-
 }

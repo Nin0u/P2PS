@@ -200,32 +200,24 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 
 	RemoveReemit(id)
 
-	hash := message[7 : 7+32]
-	value := message[7+32 : 7+getLength(message)]
+	hash := make([]byte, 32)
+	value := make([]byte, getLength(message)-32)
+	//! Copy is important, cause bug if we didn't
+	copy(hash, message[7:7+32])
+	copy(value, message[7+32:7+getLength(message)])
 	check := sha256.Sum256(value)
 	if check != [32]byte(hash) {
 		fmt.Printf("Invalid checksum : The package will be ignored.\n Given Hash = %x, Expected Hash = %x\n", hash, check)
 		return
 	}
 
-	index := FindCachedPeerByAddr(addr_sender)
-	if index == -1 {
-		fmt.Println("Don't find Peer !")
-		return
-	}
+	//Store in cache
+	AddDatumCache([32]byte(hash), value)
 
-	reqDatum.mutex.Lock()
-	if reqDatum.list[0].P != cache_peers.list[index] {
-		fmt.Println("Unexpected Peer !")
-		reqDatum.mutex.Unlock()
-		return
-	}
-	reqDatum.mutex.Unlock()
-
-	if reqDatum.list[0].TypeReq == 0 {
-		download_list([32]byte(hash), value[0], value[1:], conn)
-	} else if reqDatum.list[0].TypeReq == 1 {
-		download_dl([32]byte(hash), value[0], value[1:], conn)
+	//Wake up the thread who needs it
+	wg, ok := GetSyncMap(id)
+	if ok {
+		wg.Done()
 	}
 }
 

@@ -6,11 +6,39 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 )
 
 var debug bool = true
 var username string = ""
+
+// Keys are Id and value are sync.WaitGroup
+type SyncMap struct {
+	content map[int32]*sync.WaitGroup
+	mutex   sync.Mutex
+}
+
+var sync_map SyncMap = SyncMap{content: make(map[int32]*sync.WaitGroup)}
+
+func SetSyncMap(id int32, wg *sync.WaitGroup) {
+	sync_map.mutex.Lock()
+	sync_map.content[id] = wg
+	sync_map.mutex.Unlock()
+}
+
+func GetSyncMap(id int32) (*sync.WaitGroup, bool) {
+	sync_map.mutex.Lock()
+	wg, ok := sync_map.content[id]
+	sync_map.mutex.Unlock()
+	return wg, ok
+}
+
+func DeleteSyncMap(id int32) {
+	sync_map.mutex.Lock()
+	delete(sync_map.content, id)
+	sync_map.mutex.Unlock()
+}
 
 func Recv(client *http.Client, conn net.PacketConn) {
 	message := make([]byte, 65535+7) //TODO: + une signature
