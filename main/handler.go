@@ -111,31 +111,15 @@ func HandleErrorReply(message []byte) {
 	fmt.Printf("Error :%s\n", message[7:7+len])
 }
 
+func unblock(message_id int32) {
+	wg, b := GetSyncMap(message_id)
+	if b {
+		wg.Done()
+	}
+}
+
 func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sender net.Addr) {
-	// Find if a request with the same id is in reemit list
-	id := getID(message)
-	index_reemit := FindReemitById(id)
-	if index_reemit == -1 {
-		fmt.Printf("No message with id %d in reemit_list\n", id)
-		return
-	}
-
-	if debug {
-		fmt.Println("Reemit message found")
-		fmt.Println(reemit_list.list)
-	}
-
-	// Check if the message has type Hello
-	if reemit_list.list[index_reemit].Type != Hello {
-		fmt.Printf("Expected message to have Hello = 2 type in reemit_list, found %d.\n", reemit_list.list[index_reemit].Type)
-		return
-	}
-
-	if debug {
-		fmt.Println("Reemit message has type Hello as expected")
-	}
-	// We have to check signature before removing the message that was reemited
-
+	defer unblock(getID(message))
 	len := getLength(message)
 	name_sender := string(message[7+4 : 7+len])
 	index_peer := FindCachedPeerByName(name_sender)
@@ -152,12 +136,9 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 
 		signature := message[7+len:]
 
-		// Then verify the signature
+		// If signature is verified add the peer to the cache
 		if VerifySignature(key, signature) {
-			// Add the peer to the cache
 			Add_cached_peer(Build_peer(message, addr_sender))
-			// Remove the reemited message
-			RemoveReemit(index_reemit)
 		} else {
 			// TODO : Sinon Send Error ?
 			fmt.Println("Invalid signature")
@@ -171,8 +152,6 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 			// Update his address and the timestamp
 			cache_peers.list[index_peer].Addr = addr_sender
 			cache_peers.list[index_peer].LastMessageTime = time.Now()
-			// Remove the reemited message
-			RemoveReemit(index_reemit)
 		} else {
 			// TODO : Sinon Send Error ?
 			fmt.Println("Invalid signature")
@@ -184,24 +163,11 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 
 func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.PacketConn) {
 	fmt.Println("Datum Received !")
-
-	// Find if a request with the same id is in reemit list
-	id := getID(message)
-	index_reemit := FindReemitById(id)
-	if index_reemit == -1 {
-		fmt.Printf("No message with id %d in reemit_list\n", id)
-		return
-	}
-
-	if reemit_list.list[index_reemit].Type != GetDatum {
-		fmt.Printf("Expected message to have GetDatum = %d type in reemit_list, found %d.\n", GetDatum, reemit_list.list[index_reemit].Type)
-		return
-	}
-
-	RemoveReemit(id)
+	defer unblock(getID(message))
 
 	hash := make([]byte, 32)
 	value := make([]byte, getLength(message)-32)
+
 	//! Copy is important, cause bug if we didn't
 	copy(hash, message[7:7+32])
 	copy(value, message[7+32:7+getLength(message)])
@@ -213,40 +179,15 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 
 	//Store in cache
 	AddDatumCache([32]byte(hash), value)
-
-	//Wake up the thread who needs it
-	wg, ok := GetSyncMap(id)
-	if ok {
-		wg.Done()
-	}
 }
 
 func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
-	// Find if a request with the same id is in reemit list
-	id := getID(message)
-	index_reemit := FindReemitById(id)
-	if index_reemit == -1 {
-		fmt.Printf("No message with id %d in reemit_list\n", id)
-		return
-	}
-
-	if reemit_list.list[index_reemit].Type != GetDatum {
-		fmt.Printf("Expected message to have GetDatum = %d type in reemit_list, found %d.\n", GetDatum, reemit_list.list[index_reemit].Type)
-		return
-	}
-
-	RemoveReemit(id)
+	defer unblock(getID(message))
 
 	hash := message[7 : 7+32]
 	fmt.Printf("NoDatum for the hash : %x\n", hash)
 
 	AddDatumCache([32]byte(hash), nil)
-
-	//Wake up the thread who needs it
-	wg, ok := GetSyncMap(id)
-	if ok {
-		wg.Done()
-	}
 }
 
 // TODO : à déplacer + implémenter

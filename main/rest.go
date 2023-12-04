@@ -143,7 +143,7 @@ func GetKey(c *http.Client, peer string) ([]byte, error) {
 		return key, nil
 	}
 	if res.StatusCode == 204 {
-		if debug_reemit {
+		if debug_rest {
 			fmt.Println("[GetKey] No key registered")
 		}
 		return nil, nil

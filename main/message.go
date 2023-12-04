@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -9,14 +10,13 @@ import (
 )
 
 type Message struct {
-	Id           int32
-	Dest         net.Addr
-	Type         byte
-	Length       uint16
-	Body         []byte
-	Signature    []byte
-	LastSentTime time.Time
-	NbReemit     uint8
+	Id        int32
+	Dest      net.Addr
+	Type      byte
+	Length    uint16
+	Body      []byte
+	Signature []byte
+	Timeout   time.Duration
 }
 
 const (
@@ -78,14 +78,57 @@ func getLength(m []byte) uint16 {
 	return uint16(m[5])<<8 + uint16(m[6])
 }
 
-func sendHello(conn net.PacketConn, addr net.Addr, name string) (int32, error) {
+// ! Code found on https://stackoverflow.com/questions/32840687/timeout-for-waitgroup-wait/32840688#32840688
+// waitTimeout waits for the waitgroup for the specified max timeout.
+// Returns true if waiting timed out.
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		return false // completed normally
+	case <-time.After(timeout):
+		return true // timed out
+	}
+}
+
+func reemit(conn net.PacketConn, addr net.Addr, message *Message) (int, error) {
+	defer DeleteSyncMap(message.Id)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	SetSyncMap(message.Id, &wg)
+	// The user will wait 7seconds max before aborting
+	for i := 0; i < 3; i++ {
+		_, err := conn.WriteTo(message.build(), addr)
+		if err != nil {
+			return i, err
+		}
+
+		// Timeout peut etre pour éviter de bloquer indéfiniment
+		has_timedout := waitTimeout(&wg, message.Timeout)
+
+		if has_timedout {
+			message.Timeout *= 2
+		} else {
+			return i, nil
+		}
+	}
+
+	return -1, errors.New("[reemit] Timeout exceeded")
+}
+
+func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 	len := len(name)
 	message := Message{
-		Id:     id.get(),
-		Dest:   addr,
-		Type:   Hello,
-		Length: uint16(len + 4),
-		Body:   make([]byte, len+4),
+		Id:      id.get(),
+		Dest:    addr,
+		Type:    Hello,
+		Length:  uint16(len + 4),
+		Body:    make([]byte, len+4),
+		Timeout: time.Second,
 	}
 
 	id.incr()
@@ -97,12 +140,7 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int32, error) {
 		fmt.Printf("Hello : %x\n", message.build())
 	}
 
-	// Add the message to the reemit list
-	message.LastSentTime = time.Now()
-	AddReemit(message)
-
-	_, err := conn.WriteTo(message.build(), addr)
-	return message.Id, err
+	return reemit(conn, addr, &message)
 }
 
 func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (int32, error) {
@@ -163,13 +201,14 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) 
 	return message.Id, err
 }
 
-func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, wg *sync.WaitGroup) (int32, error) {
+func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error) {
 	message := Message{
-		Id:     id.get(),
-		Dest:   addr,
-		Type:   GetDatum,
-		Length: 32,
-		Body:   make([]byte, 32),
+		Id:      id.get(),
+		Dest:    addr,
+		Type:    GetDatum,
+		Length:  32,
+		Body:    make([]byte, 32),
+		Timeout: time.Second * 1,
 	}
 	id.incr()
 	copy(message.Body[:], hash[:])
@@ -178,16 +217,7 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, wg *sync.Wa
 		fmt.Printf("GetDatum : %x\n", message.build())
 	}
 
-	// Add the message to the reemit list
-	message.LastSentTime = time.Now()
-	AddReemit(message)
-
-	if wg != nil {
-		SetSyncMap(message.Id, wg)
-	}
-
-	_, err := conn.WriteTo(message.build(), addr)
-	return message.Id, err
+	return reemit(conn, addr, &message)
 }
 
 func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (int32, error) {

@@ -55,17 +55,13 @@ func RecupDatum(conn net.PacketConn, req *RequestDatum, p *Peer) []byte {
 
 	for j := 0; !ok && j < 5; j++ {
 		fmt.Println("Send GET DATUM : " + req.Path)
-		var wg sync.WaitGroup
-		wg.Add(1)
-		id, err := sendGetDatum(conn, p.Addr, req.Hash, &wg)
+		_, err := sendGetDatum(conn, p.Addr, req.Hash)
 
 		if err != nil {
-			fmt.Println("[RecupDatum] Error send getDatum")
+			fmt.Println("[RecupDatum] Error send getDatum", err.Error())
 			return nil
 		}
 
-		wg.Wait() //TODO: Timeout peut etre pour éviter de bloquer indéfiniment
-		DeleteSyncMap(id)
 		value, ok = GetDatumCache(req.Hash)
 	}
 
