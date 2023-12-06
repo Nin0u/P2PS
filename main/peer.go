@@ -4,13 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 )
 
 type Peer struct {
 	Name            string
-	Addr            net.Addr
+	Addr            []net.Addr
 	PublicKey       [64]uint8
 	LastMessageTime time.Time
 	Root            *Node
@@ -25,16 +26,39 @@ var cache_peers Cache = Cache{list: make([]Peer, 0)}
 var timeout_cache, _ = time.ParseDuration("180s")
 var debug_peer bool = true
 
-// This function is called on a HelloReply message
-func Build_peer(message []byte, addr_sender net.Addr) Peer {
-	len := getLength(message)
-	name_sender := string(message[11 : 7+len])
-	p := Peer{Name: name_sender, Addr: addr_sender, LastMessageTime: time.Now(), Root: nil}
+func BuildPeer(c *http.Client, message []byte, addr_sender net.Addr) Peer {
+	len_message := getLength(message)
+	name_sender := string(message[11 : 7+len_message])
+	p := Peer{Name: name_sender, LastMessageTime: time.Now(), Root: nil}
+	p.Addr = make([]net.Addr, 0)
+
+	addresses, err := GetAddresses(c, name_sender)
+	if err != nil {
+		fmt.Println("[BuildPeer]", err)
+	}
+
+	for i := 0; i < len(addresses); i++ {
+		ad, err := net.ResolveUDPAddr("udp", addresses[i])
+		if err != nil {
+			fmt.Println("[BuildPeer] Error resolve addr", err.Error())
+		}
+		p.Addr = append(p.Addr, ad)
+	}
 
 	if debug_peer {
 		fmt.Printf("[BuildPeer] Building a new peer with name %s\n", name_sender)
 	}
 	return p
+}
+
+func AddAddrToPeer(p *Peer, addr net.Addr) {
+	for i := 0; i < len(p.Addr); i++ {
+		if addr.String() == p.Addr[i].String() {
+			return
+		}
+	}
+
+	p.Addr = append(p.Addr, addr)
 }
 
 func Add_cached_peer(p Peer) {
@@ -71,7 +95,7 @@ func Add_cached_peer(p Peer) {
 
 func removeCachedPeer(index int) {
 	cache_peers.mutex.Lock()
-	if debug {
+	if debug_peer {
 		fmt.Printf("Removing %s from cache\n", cache_peers.list[index].Name)
 	}
 	cache_peers.list = append(cache_peers.list[:index], cache_peers.list[index+1:]...)
@@ -103,9 +127,11 @@ func FindCachedPeerByName(name string) int {
 func FindCachedPeerByAddr(addr net.Addr) int {
 	cache_peers.mutex.Lock()
 	for i := 0; i < len(cache_peers.list); i++ {
-		if cache_peers.list[i].Addr.String() == addr.String() {
-			cache_peers.mutex.Unlock()
-			return i
+		for j := 0; j < len(cache_peers.list[i].Addr); j++ {
+			if cache_peers.list[i].Addr[j].String() == addr.String() {
+				cache_peers.mutex.Unlock()
+				return i
+			}
 		}
 	}
 	cache_peers.mutex.Unlock()

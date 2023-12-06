@@ -47,7 +47,7 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 		signature := message[7+len:]
 
 		if VerifySignature(key, signature) {
-			Add_cached_peer(Build_peer(message, addr_sender))
+			Add_cached_peer(BuildPeer(client, message, addr_sender))
 		} else {
 			// TODO : Sinon Send Error ?
 			fmt.Println("Unvalide signature")
@@ -59,7 +59,7 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 		// I have the peer's verification key
 		if VerifySignature(cache_peers.list[index].PublicKey[:], signature) {
 			// Update his address and the timestamp
-			cache_peers.list[index].Addr = addr_sender
+			AddAddrToPeer(&cache_peers.list[index], addr_sender)
 			cache_peers.list[index].LastMessageTime = time.Now()
 		} else {
 			// TODO : Sinon Send Error ?
@@ -138,7 +138,7 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 
 		// If signature is verified add the peer to the cache
 		if VerifySignature(key, signature) {
-			Add_cached_peer(Build_peer(message, addr_sender))
+			Add_cached_peer(BuildPeer(client, message, addr_sender))
 		} else {
 			// TODO : Sinon Send Error ?
 			fmt.Println("Invalid signature")
@@ -150,7 +150,7 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 		// I have the peer's verification key
 		if VerifySignature(cache_peers.list[index_peer].PublicKey[:], signature) {
 			// Update his address and the timestamp
-			cache_peers.list[index_peer].Addr = addr_sender
+			AddAddrToPeer(&cache_peers.list[index_peer], addr_sender)
 			cache_peers.list[index_peer].LastMessageTime = time.Now()
 		} else {
 			// TODO : Sinon Send Error ?

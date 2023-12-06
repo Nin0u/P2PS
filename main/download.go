@@ -55,7 +55,8 @@ func RecupDatum(conn net.PacketConn, req *RequestDatum, p *Peer) []byte {
 
 	for j := 0; !ok && j < 5; j++ {
 		fmt.Println("Send GET DATUM : " + req.Path)
-		_, err := sendGetDatum(conn, p.Addr, req.Hash)
+		// TODO : on choisit quelle addr du pair ??? J'ai mis [0] pour l'instant
+		_, err := sendGetDatum(conn, p.Addr[0], req.Hash)
 
 		if err != nil {
 			fmt.Println("[RecupDatum] Error send getDatum", err.Error())

@@ -69,5 +69,5 @@ func FindPath(n *Node, path []string) ([32]byte, error) {
 		}
 	}
 
-	return n.Hash, errors.New("Not Found")
+	return n.Hash, errors.New("not Found")
 }

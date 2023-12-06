@@ -9,20 +9,44 @@ import (
 	"strings"
 )
 
+type Command struct {
+	CommandName string
+	Argument    string
+	HelpText    string
+}
+
+var rest_commands = []Command{
+	{CommandName: "list", Argument: "", HelpText: "list all peers"},
+	{CommandName: "addr", Argument: "<peername>", HelpText: "list addresses of the peer"},
+	{CommandName: "key", Argument: "<peername>", HelpText: "get the peer's public key"},
+	{CommandName: "root", Argument: "<peername>", HelpText: "get the peer's root"},
+}
+
+var p2p_commands = []Command{
+	{CommandName: "hello", Argument: "<addr>", HelpText: "sends hello to the given address"},
+	{CommandName: "data", Argument: "<peername>", HelpText: "list data of the peer"},
+	{CommandName: "data_dl", Argument: "<peername> [<path>]", HelpText: "download data of the peer. If a path is given then it will download all the data from this path."},
+}
+
+const history_max_size = 3
+
+var history_cursor int = -1
+var command_history = make([]string, 0)
 var server_name_peer string = "jch.irif.fr"
 
-var rest_commands = []string{"list", "addr", "key", "root"}
-var p2p_commands = []string{"hello", "data", "data_dl"}
-var desc_rest_commands = []string{
-	"                        list all peers",
-	"	<peername>           list addresses",
-	" 	<peername>           get public key",
-	" 	<peername>           get root",
+func AddCommandHistory(content string) {
+	command_history = append(command_history, content)
+	if len(command_history) > history_max_size { // TODO : Adapter la taille ?
+		command_history = command_history[len(command_history)-history_max_size:]
+	}
 }
-var desc_p2p_commands = []string{
-	" 	<addr>               send hello",
-	" 	<peername>        	 list data of the peer",
-	"   <peername>           download data of the peer",
+
+func MoveHistoryCursor(up bool) {
+	if up {
+		history_cursor = (history_cursor + 1) % history_max_size
+	} else if history_cursor != -1 {
+		history_cursor = (history_cursor - 1)
+	}
 }
 
 func title_print() {
@@ -40,13 +64,37 @@ func title_print() {
 func print_help() {
 	fmt.Println("--------------- REST Commands ---------------")
 	for i := 0; i < len(rest_commands); i++ {
-		fmt.Printf("%s %s\n", rest_commands[i], desc_rest_commands[i])
+		fmt.Println(rest_commands[i].CommandName + " " + rest_commands[i].Argument + " " + rest_commands[i].HelpText)
 	}
 	fmt.Println("\n--------------- P2P Commands ---------------")
 	for i := 0; i < len(p2p_commands); i++ {
-		fmt.Printf("%s %s\n", p2p_commands[i], desc_p2p_commands[i])
+		fmt.Println(p2p_commands[i].CommandName + " " + p2p_commands[i].Argument + " " + p2p_commands[i].HelpText)
 	}
 	fmt.Println("\n(Type help to display this list)")
+}
+
+func start(client *http.Client, conn net.PacketConn) {
+	addr_list, err := GetAddresses(client, server_name_peer)
+	if err != nil {
+		fmt.Println("Error getAddr on server:", err.Error())
+		return
+	}
+
+	//TODO: Trier la liste des addr pour voir celle qui ne marche pas
+	//We can do it with the function at the bottom of this file :
+	//			we launch sendHello and wait during some time and if we get to the timeout, we test another one
+	//Here I suppose that the first addr works but it's not really sure
+	addr, err := net.ResolveUDPAddr("udp", addr_list[1])
+	if err != nil {
+		fmt.Println("Error resolve addr", err.Error())
+		return
+	}
+
+	_, err = sendHello(conn, addr, username)
+	if err != nil {
+		fmt.Println("Error send hello :", err.Error())
+		return
+	}
 }
 
 func cli(client *http.Client, conn net.PacketConn) {
@@ -68,7 +116,9 @@ func cli(client *http.Client, conn net.PacketConn) {
 	fmt.Fprint(os.Stdout, "$> ")
 	for sc.Scan() {
 		content := sc.Text()
+		AddCommandHistory(content)
 		words := strings.Split(content, " ")
+
 		switch words[0] {
 		case "list":
 			handleList(client)
@@ -98,31 +148,6 @@ func cli(client *http.Client, conn net.PacketConn) {
 		fmt.Fprint(os.Stdout, "$> ")
 
 	}
-}
-
-func start(client *http.Client, conn net.PacketConn) {
-	addr_list, err := GetAddresses(client, server_name_peer)
-	if err != nil {
-		fmt.Println("Error getAddr on server:", err.Error())
-		return
-	}
-
-	//TODO: Trier la liste des addr pour voir celle qui ne marche pas
-	//We can do it with the function at the bottom of this file :
-	//			we launch sendHello and wait during some time and if we get to the timeout, we test another one
-	//Here I suppose that the first addr works but it's not really sure
-	addr, err := net.ResolveUDPAddr("udp", addr_list[1])
-	if err != nil {
-		fmt.Println("Error resolve addr", err.Error())
-		return
-	}
-
-	_, err = sendHello(conn, addr, username)
-	if err != nil {
-		fmt.Println("Error send hello :", err.Error())
-		return
-	}
-
 }
 
 func handleList(client *http.Client) {
