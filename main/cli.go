@@ -194,19 +194,19 @@ func cli(client *http.Client, conn net.PacketConn) {
 			autocomplete(&s)
 
 		case keyboard.KeyEsc:
-			fmt.Fprintln(os.Stdout, "")
+			fmt.Println("")
 			return
 
 		case keyboard.KeyEnter:
-			fmt.Fprintln(os.Stdout, "")
+			fmt.Println("")
 			execCommand(client, conn, s)
-			fmt.Fprint(os.Stdout, "\n$> ")
+			fmt.Printf("\n%s", prompt)
 			s = ""
 
 		case keyboard.KeyBackspace2:
 			if len(s) != 0 {
 				s = s[:len(s)-1]
-				fmt.Fprintf(os.Stdout, "\r%s%s \r%s%s", prompt, s, prompt, s)
+				fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s)
 			}
 
 		case keyboard.KeySpace: // Default case doesn't work with space idk why
