@@ -86,7 +86,7 @@ func GetAddresses(c *http.Client, peer string) ([]string, error) {
 	}
 
 	// * We're gonna store the peers we got in this array
-	arr_addr := make([]string, 1)
+	arr_addr := make([]string, 0)
 
 	if res.StatusCode == 200 {
 		scanner := bufio.NewScanner(res.Body)
