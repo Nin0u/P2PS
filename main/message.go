@@ -117,6 +117,19 @@ func reemit(conn net.PacketConn, addr net.Addr, message *Message) (int, error) {
 		}
 	}
 
+	//Atomic Operation !!!
+	//Here we want to prevent from double wg.done() because it's causes crashes
+	//Assure that nobody is going to do a wg.done() !
+	//If someone do a wg.done() before -> we have received the packet and have timeout, it's weird but acceptable
+	sync_map.mutex.Lock()
+	_, ok := sync_map.content[message.Id]
+	if ok {
+		//Unlock all the thread that are blocked by the waitgroup
+		wg.Done()
+		delete(sync_map.content, message.Id)
+	}
+	sync_map.mutex.Unlock()
+
 	return -1, errors.New("[reemit] Timeout exceeded")
 }
 

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/eiannone/keyboard"
@@ -212,6 +213,9 @@ func cli(client *http.Client, conn net.PacketConn) {
 		case keyboard.KeySpace: // Default case doesn't work with space idk why
 			fmt.Print(" ")
 			s += " "
+
+		case keyboard.KeyCtrlC:
+			fmt.Println(runtime.NumGoroutine())
 
 		default:
 			fmt.Print(string(char))
