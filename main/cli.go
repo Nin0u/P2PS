@@ -56,12 +56,14 @@ func AddCommandHistory(content string) {
 	history_cursor = len(command_history)
 }
 
-func moveHistoryCursor(up bool) {
+func moveHistoryCursor(up bool, s *string) {
 	if up && history_cursor > 0 {
 		history_cursor--
 	} else if !up && history_cursor <= len(command_history)-1 {
 		history_cursor++
 	}
+
+	getHistoryCommand(s)
 }
 
 func getHistoryCommand(s *string) {
@@ -86,6 +88,24 @@ func moveInputCursor(left bool, s *string) {
 		} else if !left && input_cursor < len(*s) {
 			input_cursor++
 		}
+	}
+
+	if input_cursor > len(*s) {
+		fmt.Printf("\r%s%s", prompt, *s)
+	} else {
+		fmt.Printf("\r%s%s", prompt, (*s)[:input_cursor])
+	}
+}
+
+func addCharToCommand(c string, s *string) {
+	if input_cursor < len(*s) {
+		*s = (*s)[:input_cursor] + c + (*s)[input_cursor:]
+		fmt.Printf("\r%s%s\r%s%s", prompt, *s, prompt, (*s)[:input_cursor])
+		input_cursor++
+	} else {
+		(*s) += c
+		input_cursor = len(*s)
+		fmt.Printf("\r%s%s", prompt, *s)
 	}
 }
 
@@ -197,28 +217,14 @@ func cli(client *http.Client, conn net.PacketConn) {
 		char, key, _ := keyboard.GetKey()
 		switch key {
 		case keyboard.KeyArrowUp:
-			moveHistoryCursor(true)
-			getHistoryCommand(&s)
-
+			moveHistoryCursor(true, &s)
 		case keyboard.KeyArrowDown:
-			moveHistoryCursor(false)
-			getHistoryCommand(&s)
+			moveHistoryCursor(false, &s)
 
 		case keyboard.KeyArrowLeft:
 			moveInputCursor(true, &s)
-			if input_cursor > len(s) {
-				fmt.Printf("\r%s%s", prompt, s)
-			} else {
-				fmt.Printf("\r%s%s", prompt, s[:input_cursor])
-			}
-
 		case keyboard.KeyArrowRight:
 			moveInputCursor(false, &s)
-			if input_cursor > len(s) {
-				fmt.Printf("\r%s%s", prompt, s)
-			} else {
-				fmt.Printf("\r%s%s", prompt, s[:input_cursor])
-			}
 
 		case keyboard.KeyTab:
 			autocomplete(&s)
@@ -249,26 +255,10 @@ func cli(client *http.Client, conn net.PacketConn) {
 			}
 
 		case keyboard.KeySpace: // Default case doesn't work with space idk why
-			if input_cursor < len(s) {
-				s = s[:input_cursor] + " " + s[input_cursor:]
-				fmt.Printf("\r%s%s\r%s%s", prompt, s, prompt, s[:input_cursor])
-				input_cursor++
-			} else {
-				s += " "
-				input_cursor = len(s)
-				fmt.Printf("\r%s%s", prompt, s)
-			}
+			addCharToCommand(" ", &s)
 
 		default:
-			if input_cursor < len(s) {
-				s = s[:input_cursor] + string(char) + s[input_cursor:]
-				input_cursor++
-				fmt.Printf("\r%s%s\r%s%s", prompt, s, prompt, s[:input_cursor])
-			} else {
-				s += string(char)
-				input_cursor = len(s)
-				fmt.Printf("\r%s%s", prompt, s)
-			}
+			addCharToCommand(string(char), &s)
 		}
 	}
 }

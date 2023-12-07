@@ -126,7 +126,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer func() { conn.Close() }()
 
 	go Recv(client, conn)
 	cli(client, conn)
