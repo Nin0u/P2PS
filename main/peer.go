@@ -24,7 +24,7 @@ type Cache struct {
 
 var cache_peers Cache = Cache{list: make([]Peer, 0)}
 var timeout_cache, _ = time.ParseDuration("180s")
-var debug_peer bool = true
+var debug_peer bool = false
 
 func BuildPeer(c *http.Client, message []byte, addr_sender net.Addr) Peer {
 	len_message := getLength(message)

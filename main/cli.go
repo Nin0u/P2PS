@@ -18,15 +18,15 @@ type Command struct {
 }
 
 var rest_commands = []Command{
-	{CommandName: "list", Argument: "", HelpText: "list all peers"},
-	{CommandName: "addr", Argument: "<peername>", HelpText: "list addresses of the peer"},
-	{CommandName: "key", Argument: "<peername>", HelpText: "get the peer's public key"},
-	{CommandName: "root", Argument: "<peername>", HelpText: "get the peer's root"},
+	{CommandName: "list   ", Argument: "                   ", HelpText: "list all peers"},
+	{CommandName: "addr   ", Argument: "<peername>         ", HelpText: "list addresses of the peer"},
+	{CommandName: "key    ", Argument: "<peername>         ", HelpText: "get the peer's public key"},
+	{CommandName: "root   ", Argument: "<peername>         ", HelpText: "get the peer's root"},
 }
 
 var p2p_commands = []Command{
-	{CommandName: "hello", Argument: "<addr>", HelpText: "sends hello to the given address"},
-	{CommandName: "data", Argument: "<peername>", HelpText: "list data of the peer"},
+	{CommandName: "hello  ", Argument: "<addr>             ", HelpText: "sends hello to the given address"},
+	{CommandName: "data   ", Argument: "<peername>         ", HelpText: "list data of the peer"},
 	{CommandName: "data_dl", Argument: "<peername> [<path>]", HelpText: "download data of the peer. If a path is given then it will download all the data from this path."},
 }
 
@@ -95,7 +95,7 @@ func title_print() {
 	fmt.Println("  \\ \\ /\\ / / _ \\ |/ __/ _ \\| '_ ` _ \\ / _ \\ | __/ _ \\ ")
 	fmt.Println("   \\ V  V /  __/ | (_| (_) | | | | | |  __/ | || (_) |")
 	fmt.Println("  __\\_/\\_/_\\___|_|\\___\\___/|_| |_| |_|\\___|  \\__\\___/")
-	fmt.Println(" |  _ \\___ \\|  _ \\/ ___|| |__   ")
+	fmt.Println(" |  _ \\___ \\|  _ \\/ ___|| |__   __ _ _ __ ___")
 	fmt.Println(" | |_) |__) | |_) \\___ \\| '_ \\ / _` | '__/ _ \\ ")
 	fmt.Println(" |  __// __/|  __/ ___) | | | | (_| | | |  __/")
 	fmt.Println(" |_|  |_____|_|   |____/|_| |_|\\__,_|_|  \\___|")
@@ -111,9 +111,11 @@ func print_help() {
 		fmt.Println(p2p_commands[i].CommandName + " " + p2p_commands[i].Argument + " " + p2p_commands[i].HelpText)
 	}
 	fmt.Println("\n(Type help to display this list)")
+	fmt.Println("Press escape to exit the program.")
 }
 
 func start(client *http.Client, conn net.PacketConn) {
+	fmt.Println("Connecting to server :", server)
 	addr_list, err := GetAddresses(client, server_name_peer)
 	if err != nil {
 		fmt.Println("Error getAddr on server:", err.Error())
@@ -222,7 +224,7 @@ func cli(client *http.Client, conn net.PacketConn) {
 			autocomplete(&s)
 
 		case keyboard.KeyEsc:
-			fmt.Println("")
+			fmt.Println("\n[Exit]")
 			return
 
 		case keyboard.KeyEnter:

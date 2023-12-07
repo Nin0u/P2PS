@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/sha256"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"time"
@@ -16,6 +15,8 @@ const (
 	DIRECTORY byte = 2
 )
 
+var debug_handler bool = false
+
 // TODO : Il va falloir une fonction ici pour vérifier les signatures lorsqu'on les implémentera et l'appeler dans chaque handle
 
 func HandleError(message []byte) {
@@ -25,7 +26,9 @@ func HandleError(message []byte) {
 
 func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr, name string) {
 	if nb_byte < 7+4+1 { // Sender's name is not empty
-		fmt.Println("The sender has no name, the message will be ignored.")
+		if debug_handler {
+			fmt.Println("[HandleHello] The sender has no name")
+		}
 		return
 	}
 
@@ -33,14 +36,16 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 	name_sender := string(message[7+4 : 7+len])
 	index := FindCachedPeerByName(name_sender)
 	if index == -1 { // I don't know the peer
-		if debug {
-			fmt.Println("Didn't find peer")
+		if debug_handler {
+			fmt.Println("[HandleHello] Didn't find peer in cache")
 		}
 
 		// Ima ask the server the peer's public key
 		key, err := GetKey(client, name_sender)
 		if err != nil {
-			fmt.Println(err)
+			if debug_handler {
+				fmt.Println("[HandleHello] Error while fetching key :", err)
+			}
 			return
 		}
 
@@ -50,7 +55,9 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 			Add_cached_peer(BuildPeer(client, message, addr_sender))
 		} else {
 			// TODO : Sinon Send Error ?
-			fmt.Println("Unvalide signature")
+			if debug_handler {
+				fmt.Println("[HandleHello] Invalid signature with fetched key")
+			}
 			return
 		}
 
@@ -63,46 +70,48 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 			cache_peers.list[index].LastMessageTime = time.Now()
 		} else {
 			// TODO : Sinon Send Error ?
-			fmt.Println("Unvalide signature")
+			if debug_handler {
+				fmt.Println("[HandleHello] Invalid signature with known peer")
+			}
 			return
 		}
-
 	}
 
 	// sends HelloReply
 	_, err := sendHelloReply(conn, addr_sender, name, getID(message))
 	if err != nil {
-		log.Fatal(err)
-		return
+		if debug_handler {
+			fmt.Println("[HandleHello] Error in sending HelloReply :", err)
+		}
 	}
 }
 
 func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	_, err := sendPublicKeyReply(conn, addr_sender, getID(message))
 	if err != nil {
-		if debug {
-			log.Fatal(err)
+		if debug_handler {
+			fmt.Println("[HandlePublicKey] Error while sending public key :", err)
 		}
-
-		return
 	}
 }
 
 func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	_, err := sendRootReply(conn, addr_sender, getID(message))
 	if err != nil {
-		log.Fatal(err)
-		return
+		if debug_handler {
+			fmt.Println("[HandleRoot] Error while sending root :", err)
+		}
 	}
 }
 
 func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
-
 	hash := message[7 : 7+32]
+	// TODO : adapter avec export !
 	_, err := sendNoDatum(conn, addr_sender, [32]byte(hash), getID(message))
 	if err != nil {
-		log.Fatal(err)
-		return
+		if debug_handler {
+			fmt.Println("[HandleGetDatum] Error while sending datum :", err)
+		}
 	}
 }
 
@@ -123,14 +132,19 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 	len := getLength(message)
 	name_sender := string(message[7+4 : 7+len])
 	index_peer := FindCachedPeerByName(name_sender)
+
+	// I don't know the peer
 	if index_peer == -1 {
-		// I don't know the peer
-		fmt.Println("Didn't find peer. Creating a new one")
+		if debug_handler {
+			fmt.Println("[HandleHelloReply] Didn't find peer. Creating a new one")
+		}
 
 		// First, ask the server the peer's public key
 		key, err := GetKey(client, name_sender)
 		if err != nil {
-			fmt.Println(err)
+			if debug_handler {
+				fmt.Println("[HandleHelloReply] Error while fetching key :", err)
+			}
 			return
 		}
 
@@ -141,7 +155,9 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 			Add_cached_peer(BuildPeer(client, message, addr_sender))
 		} else {
 			// TODO : Sinon Send Error ?
-			fmt.Println("Invalid signature")
+			if debug_handler {
+				fmt.Println("[HandleHelloReply] Invalid signature with fetched key")
+			}
 			return
 		}
 
@@ -154,7 +170,9 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 			cache_peers.list[index_peer].LastMessageTime = time.Now()
 		} else {
 			// TODO : Sinon Send Error ?
-			fmt.Println("Invalid signature")
+			if debug_handler {
+				fmt.Println("[HandleHelloReply] Invalid signature with known peer")
+			}
 			return
 		}
 
@@ -162,8 +180,11 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 }
 
 func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.PacketConn) {
-	fmt.Println("Datum Received !")
 	defer unblock(getID(message))
+
+	if debug_handler {
+		fmt.Println("[HandleDatum] Datum Received !")
+	}
 
 	hash := make([]byte, 32)
 	value := make([]byte, getLength(message)-32)
@@ -173,7 +194,9 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 	copy(value, message[7+32:7+getLength(message)])
 	check := sha256.Sum256(value)
 	if check != [32]byte(hash) {
-		fmt.Printf("Invalid checksum : The package will be ignored.\n Given Hash = %x, Expected Hash = %x\n", hash, check)
+		if debug_handler {
+			fmt.Printf("[HandleDatum] Invalid checksum : Given Hash = %x, Expected Hash = %x\n", hash, check)
+		}
 		return
 	}
 

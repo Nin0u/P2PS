@@ -38,6 +38,7 @@ const (
 )
 
 var id = Id{current_id: 0}
+var debug_message bool = false
 
 func (m *Message) build() []byte {
 	message := make([]byte, 7+m.Length)
@@ -55,7 +56,6 @@ func (m *Message) build() []byte {
 	message[5] = byte(m.Length >> 8 % (1 << 8))
 	message[6] = byte(m.Length % (1 << 8))
 
-	// TODO : error ?
 	copy(message[7:], m.Body)
 
 	// Write signature if not nil
@@ -117,7 +117,7 @@ func reemit(conn net.PacketConn, addr net.Addr, message *Message) (int, error) {
 		}
 	}
 
-	return -1, errors.New("[reemit] Timeout exceeded")
+	return -1, errors.New("\n[reemit] Timeout exceeded")
 }
 
 func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
@@ -136,8 +136,8 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 	// TODO : error ?
 	copy(message.Body[4:], name)
 
-	if debug {
-		fmt.Printf("Hello : %x\n", message.build())
+	if debug_message {
+		fmt.Printf("[sendHello] Hello : %x\n", message.build())
 	}
 
 	return reemit(conn, addr, &message)
@@ -156,8 +156,8 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 	// TODO : error ?
 	copy(message.Body[4:], name)
 
-	if debug {
-		fmt.Printf("HelloReply : %x\n", message.build())
+	if debug_message {
+		fmt.Printf("[sendHelloReply] HelloReply : %x\n", message.build())
 	}
 
 	_, err := conn.WriteTo(message.build(), addr)
@@ -173,8 +173,8 @@ func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, er
 		Length: 0,
 	}
 
-	if debug {
-		fmt.Printf("KeyReply : %x\n", message.build())
+	if debug_message {
+		fmt.Printf("[sendPublicKeyReply] KeyReply : %x\n", message.build())
 	}
 
 	_, err := conn.WriteTo(message.build(), addr)
@@ -193,8 +193,8 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) 
 
 	copy(message.Body[:], hash[:])
 
-	if debug {
-		fmt.Printf("RootReply : %x\n", message.build())
+	if debug_message {
+		fmt.Printf("[sendRootReply] RootReply : %x\n", message.build())
 	}
 
 	_, err := conn.WriteTo(message.build(), addr)
@@ -202,6 +202,13 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) 
 }
 
 func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error) {
+	_, err := sendHello(conn, addr, username)
+	if err != nil {
+		if debug_message {
+			fmt.Println("[sendGetDatum] error while sending hello :", err)
+		}
+	}
+
 	message := Message{
 		Id:      id.get(),
 		Dest:    addr,
@@ -214,7 +221,7 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 	copy(message.Body[:], hash[:])
 
 	if debug {
-		fmt.Printf("GetDatum : %x\n", message.build())
+		fmt.Printf("[sendGetDatum] GetDatum : %x\n", message.build())
 	}
 
 	return reemit(conn, addr, &message)
@@ -231,8 +238,8 @@ func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (i
 
 	copy(message.Body[:], hash[:])
 
-	if debug {
-		fmt.Printf("NoDatum : %x\n", message.build())
+	if debug_message {
+		fmt.Printf("[sendNoDatum] NoDatum : %x\n", message.build())
 	}
 
 	_, err := conn.WriteTo(message.build(), addr)

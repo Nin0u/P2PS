@@ -6,11 +6,12 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
 
-var debug bool = true
+var debug bool = false
 var username string = ""
 
 // Keys are Id and value are sync.WaitGroup
@@ -105,6 +106,15 @@ func Recv(client *http.Client, conn net.PacketConn) {
 }
 
 func main() {
+	args := os.Args[1:]
+	if len(args) == 1 && args[0] == "--debug" {
+		debug = true
+		debug_peer = true
+		debug_rest = true
+		debug_handler = true
+		debug_message = true
+	}
+
 	transport := &*http.DefaultTransport.(*http.Transport)
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	client := &http.Client{
@@ -116,6 +126,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer func() { conn.Close() }()
 
 	go Recv(client, conn)
 	cli(client, conn)
