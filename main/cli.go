@@ -39,6 +39,8 @@ var command_history = make([]string, 0)
 // Prompt
 const prompt string = "$> "
 
+var input_cursor int = 0
+
 var server_name_peer string = "jch.irif.fr"
 
 func autocomplete(s *string) {
@@ -54,10 +56,10 @@ func AddCommandHistory(content string) {
 	history_cursor = len(command_history)
 }
 
-func MoveHistoryCursor(up bool) {
-	if up && history_cursor >= 0 {
+func moveHistoryCursor(up bool) {
+	if up && history_cursor > 0 {
 		history_cursor--
-	} else if history_cursor < len(command_history)-1 {
+	} else if !up && history_cursor <= len(command_history)-1 {
 		history_cursor++
 	}
 }
@@ -68,12 +70,22 @@ func getHistoryCommand(s *string) {
 		blank += " "
 	}
 
-	if history_cursor == -1 {
+	if history_cursor == len(command_history) {
 		*s = ""
 		fmt.Printf("\r%s%s\r%s", prompt, blank, prompt)
 	} else {
 		*s = command_history[history_cursor]
 		fmt.Printf("\r%s%s\r%s%s", prompt, blank, prompt, *s)
+	}
+}
+
+func moveInputCursor(left bool, s *string) {
+	if len(*s) > 0 {
+		if left && input_cursor >= 1 {
+			input_cursor--
+		} else if !left && input_cursor < len(*s) {
+			input_cursor++
+		}
 	}
 }
 
@@ -182,13 +194,29 @@ func cli(client *http.Client, conn net.PacketConn) {
 	for {
 		char, key, _ := keyboard.GetKey()
 		switch key {
-		case keyboard.KeyArrowDown:
-			MoveHistoryCursor(false)
+		case keyboard.KeyArrowUp:
+			moveHistoryCursor(true)
 			getHistoryCommand(&s)
 
-		case keyboard.KeyArrowUp:
-			MoveHistoryCursor(true)
+		case keyboard.KeyArrowDown:
+			moveHistoryCursor(false)
 			getHistoryCommand(&s)
+
+		case keyboard.KeyArrowLeft:
+			moveInputCursor(true, &s)
+			if input_cursor > len(s) {
+				fmt.Printf("\r%s%s", prompt, s)
+			} else {
+				fmt.Printf("\r%s%s", prompt, s[:input_cursor])
+			}
+
+		case keyboard.KeyArrowRight:
+			moveInputCursor(false, &s)
+			if input_cursor > len(s) {
+				fmt.Printf("\r%s%s", prompt, s)
+			} else {
+				fmt.Printf("\r%s%s", prompt, s[:input_cursor])
+			}
 
 		case keyboard.KeyTab:
 			autocomplete(&s)
@@ -205,17 +233,40 @@ func cli(client *http.Client, conn net.PacketConn) {
 
 		case keyboard.KeyBackspace2:
 			if len(s) != 0 {
-				s = s[:len(s)-1]
-				fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s)
+				if input_cursor != 0 {
+					if input_cursor < len(s) {
+						s = s[:input_cursor-1] + s[input_cursor:]
+						input_cursor--
+						fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s[:input_cursor])
+					} else {
+						s = s[:len(s)-1]
+						input_cursor = len(s)
+						fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s)
+					}
+				}
 			}
 
 		case keyboard.KeySpace: // Default case doesn't work with space idk why
-			fmt.Print(" ")
-			s += " "
+			if input_cursor < len(s) {
+				s = s[:input_cursor] + " " + s[input_cursor:]
+				fmt.Printf("\r%s%s\r%s%s", prompt, s, prompt, s[:input_cursor])
+				input_cursor++
+			} else {
+				s += " "
+				input_cursor = len(s)
+				fmt.Printf("\r%s%s", prompt, s)
+			}
 
 		default:
-			fmt.Print(string(char))
-			s += string(char)
+			if input_cursor < len(s) {
+				s = s[:input_cursor] + string(char) + s[input_cursor:]
+				input_cursor++
+				fmt.Printf("\r%s%s\r%s%s", prompt, s, prompt, s[:input_cursor])
+			} else {
+				s += string(char)
+				input_cursor = len(s)
+				fmt.Printf("\r%s%s", prompt, s)
+			}
 		}
 	}
 }
