@@ -19,15 +19,15 @@ type Command struct {
 }
 
 var rest_commands = []Command{
-	{CommandName: "list", Argument: "", HelpText: "list all peers"},
-	{CommandName: "addr", Argument: "<peername>", HelpText: "list addresses of the peer"},
-	{CommandName: "key", Argument: "<peername>", HelpText: "get the peer's public key"},
-	{CommandName: "root", Argument: "<peername>", HelpText: "get the peer's root"},
+	{CommandName: "list   ", Argument: "                   ", HelpText: "list all peers"},
+	{CommandName: "addr   ", Argument: "<peername>         ", HelpText: "list addresses of the peer"},
+	{CommandName: "key    ", Argument: "<peername>         ", HelpText: "get the peer's public key"},
+	{CommandName: "root   ", Argument: "<peername>         ", HelpText: "get the peer's root"},
 }
 
 var p2p_commands = []Command{
-	{CommandName: "hello", Argument: "<addr>", HelpText: "sends hello to the given address"},
-	{CommandName: "data", Argument: "<peername>", HelpText: "list data of the peer"},
+	{CommandName: "hello  ", Argument: "<addr>             ", HelpText: "sends hello to the given address"},
+	{CommandName: "data   ", Argument: "<peername>         ", HelpText: "list data of the peer"},
 	{CommandName: "data_dl", Argument: "<peername> [<path>]", HelpText: "download data of the peer. If a path is given then it will download all the data from this path."},
 }
 
@@ -39,6 +39,8 @@ var command_history = make([]string, 0)
 
 // Prompt
 const prompt string = "$> "
+
+var input_cursor int = 0
 
 var server_name_peer string = "jch.irif.fr"
 
@@ -55,12 +57,14 @@ func AddCommandHistory(content string) {
 	history_cursor = len(command_history)
 }
 
-func MoveHistoryCursor(up bool) {
-	if up && history_cursor >= 0 {
+func moveHistoryCursor(up bool, s *string) {
+	if up && history_cursor > 0 {
 		history_cursor--
-	} else if history_cursor < len(command_history)-1 {
+	} else if !up && history_cursor <= len(command_history)-1 {
 		history_cursor++
 	}
+
+	getHistoryCommand(s)
 }
 
 func getHistoryCommand(s *string) {
@@ -69,12 +73,40 @@ func getHistoryCommand(s *string) {
 		blank += " "
 	}
 
-	if history_cursor == -1 {
+	if history_cursor == len(command_history) {
 		*s = ""
 		fmt.Printf("\r%s%s\r%s", prompt, blank, prompt)
 	} else {
 		*s = command_history[history_cursor]
 		fmt.Printf("\r%s%s\r%s%s", prompt, blank, prompt, *s)
+	}
+}
+
+func moveInputCursor(left bool, s *string) {
+	if len(*s) > 0 {
+		if left && input_cursor >= 1 {
+			input_cursor--
+		} else if !left && input_cursor < len(*s) {
+			input_cursor++
+		}
+	}
+
+	if input_cursor > len(*s) {
+		fmt.Printf("\r%s%s", prompt, *s)
+	} else {
+		fmt.Printf("\r%s%s", prompt, (*s)[:input_cursor])
+	}
+}
+
+func addCharToCommand(c string, s *string) {
+	if input_cursor < len(*s) {
+		*s = (*s)[:input_cursor] + c + (*s)[input_cursor:]
+		fmt.Printf("\r%s%s\r%s%s", prompt, *s, prompt, (*s)[:input_cursor])
+		input_cursor++
+	} else {
+		(*s) += c
+		input_cursor = len(*s)
+		fmt.Printf("\r%s%s", prompt, *s)
 	}
 }
 
@@ -84,7 +116,7 @@ func title_print() {
 	fmt.Println("  \\ \\ /\\ / / _ \\ |/ __/ _ \\| '_ ` _ \\ / _ \\ | __/ _ \\ ")
 	fmt.Println("   \\ V  V /  __/ | (_| (_) | | | | | |  __/ | || (_) |")
 	fmt.Println("  __\\_/\\_/_\\___|_|\\___\\___/|_| |_| |_|\\___|  \\__\\___/")
-	fmt.Println(" |  _ \\___ \\|  _ \\/ ___|| |__   ")
+	fmt.Println(" |  _ \\___ \\|  _ \\/ ___|| |__   __ _ _ __ ___")
 	fmt.Println(" | |_) |__) | |_) \\___ \\| '_ \\ / _` | '__/ _ \\ ")
 	fmt.Println(" |  __// __/|  __/ ___) | | | | (_| | | |  __/")
 	fmt.Println(" |_|  |_____|_|   |____/|_| |_|\\__,_|_|  \\___|")
@@ -100,9 +132,11 @@ func print_help() {
 		fmt.Println(p2p_commands[i].CommandName + " " + p2p_commands[i].Argument + " " + p2p_commands[i].HelpText)
 	}
 	fmt.Println("\n(Type help to display this list)")
+	fmt.Println("Press escape to exit the program.")
 }
 
 func start(client *http.Client, conn net.PacketConn) {
+	fmt.Println("Connecting to server :", server)
 	addr_list, err := GetAddresses(client, server_name_peer)
 	if err != nil {
 		fmt.Println("Error getAddr on server:", err.Error())
@@ -183,19 +217,21 @@ func cli(client *http.Client, conn net.PacketConn) {
 	for {
 		char, key, _ := keyboard.GetKey()
 		switch key {
-		case keyboard.KeyArrowDown:
-			MoveHistoryCursor(false)
-			getHistoryCommand(&s)
-
 		case keyboard.KeyArrowUp:
-			MoveHistoryCursor(true)
-			getHistoryCommand(&s)
+			moveHistoryCursor(true, &s)
+		case keyboard.KeyArrowDown:
+			moveHistoryCursor(false, &s)
+
+		case keyboard.KeyArrowLeft:
+			moveInputCursor(true, &s)
+		case keyboard.KeyArrowRight:
+			moveInputCursor(false, &s)
 
 		case keyboard.KeyTab:
 			autocomplete(&s)
 
 		case keyboard.KeyEsc:
-			fmt.Println("")
+			fmt.Println("\n[Exit]")
 			return
 
 		case keyboard.KeyEnter:
@@ -206,20 +242,27 @@ func cli(client *http.Client, conn net.PacketConn) {
 
 		case keyboard.KeyBackspace2:
 			if len(s) != 0 {
-				s = s[:len(s)-1]
-				fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s)
+				if input_cursor != 0 {
+					if input_cursor < len(s) {
+						s = s[:input_cursor-1] + s[input_cursor:]
+						input_cursor--
+						fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s[:input_cursor])
+					} else {
+						s = s[:len(s)-1]
+						input_cursor = len(s)
+						fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s)
+					}
+				}
 			}
 
 		case keyboard.KeySpace: // Default case doesn't work with space idk why
-			fmt.Print(" ")
-			s += " "
+			addCharToCommand(" ", &s)
 
 		case keyboard.KeyCtrlC:
 			fmt.Println(runtime.NumGoroutine())
 
 		default:
-			fmt.Print(string(char))
-			s += string(char)
+			addCharToCommand(string(char), &s)
 		}
 	}
 }

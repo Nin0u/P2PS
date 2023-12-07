@@ -10,7 +10,8 @@ import (
 
 const server string = "https://jch.irif.fr:8443/"
 const peers string = "peers/"
-const debug_rest bool = true
+
+var debug_rest bool = false
 
 func getRequest(c *http.Client, URL string) (*http.Response, error) {
 	if debug_rest {
