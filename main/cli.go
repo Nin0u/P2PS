@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/eiannone/keyboard"
 )
 
 type Command struct {
@@ -28,24 +30,50 @@ var p2p_commands = []Command{
 	{CommandName: "data_dl", Argument: "<peername> [<path>]", HelpText: "download data of the peer. If a path is given then it will download all the data from this path."},
 }
 
-const history_max_size = 3
+// Command History
+const history_max_size = 5
 
-var history_cursor int = -1
+var history_cursor int = 0
 var command_history = make([]string, 0)
+
+// Prompt
+const prompt string = "$> "
+
 var server_name_peer string = "jch.irif.fr"
+
+func autocomplete(s *string) {
+	// TODO
+}
 
 func AddCommandHistory(content string) {
 	command_history = append(command_history, content)
-	if len(command_history) > history_max_size { // TODO : Adapter la taille ?
+	if len(command_history) >= history_max_size {
 		command_history = command_history[len(command_history)-history_max_size:]
 	}
+
+	history_cursor = len(command_history)
 }
 
 func MoveHistoryCursor(up bool) {
-	if up {
-		history_cursor = (history_cursor + 1) % history_max_size
-	} else if history_cursor != -1 {
-		history_cursor = (history_cursor - 1)
+	if up && history_cursor >= 0 {
+		history_cursor--
+	} else if history_cursor < len(command_history)-1 {
+		history_cursor++
+	}
+}
+
+func getHistoryCommand(s *string) {
+	blank := ""
+	for i := 0; i < len(*s); i++ {
+		blank += " "
+	}
+
+	if history_cursor == -1 {
+		*s = ""
+		fmt.Printf("\r%s%s\r%s", prompt, blank, prompt)
+	} else {
+		*s = command_history[history_cursor]
+		fmt.Printf("\r%s%s\r%s%s", prompt, blank, prompt, *s)
 	}
 }
 
@@ -97,6 +125,38 @@ func start(client *http.Client, conn net.PacketConn) {
 	}
 }
 
+func execCommand(client *http.Client, conn net.PacketConn, content string) {
+	AddCommandHistory(content)
+	words := strings.Split(content, " ")
+
+	switch words[0] {
+	case "list":
+		handleList(client)
+
+	case "addr":
+		handleListAddr(client, words)
+
+	case "hello":
+		handleSendHello(conn, words)
+
+	case "root":
+		handleGetRoot(client, words)
+
+	case "data":
+		handleGetData(client, conn, words)
+
+	case "data_dl":
+		handleGetDataDL(client, conn, words)
+
+	case "help":
+		print_help()
+
+	default:
+		fmt.Println("Unknown command ;-;")
+
+	}
+}
+
 func cli(client *http.Client, conn net.PacketConn) {
 	sc := bufio.NewScanner(os.Stdin)
 
@@ -111,42 +171,52 @@ func cli(client *http.Client, conn net.PacketConn) {
 	fmt.Println()
 
 	start(client, conn)
+	fmt.Print(prompt)
 
-	// Main loop
-	fmt.Fprint(os.Stdout, "$> ")
-	for sc.Scan() {
-		content := sc.Text()
-		AddCommandHistory(content)
-		words := strings.Split(content, " ")
+	if err := keyboard.Open(); err != nil {
+		panic(err)
+	}
+	defer func() { keyboard.Close() }()
 
-		switch words[0] {
-		case "list":
-			handleList(client)
+	s := ""
+	for {
+		char, key, _ := keyboard.GetKey()
+		switch key {
+		case keyboard.KeyArrowDown:
+			MoveHistoryCursor(false)
+			getHistoryCommand(&s)
 
-		case "addr":
-			handleListAddr(client, words)
+		case keyboard.KeyArrowUp:
+			MoveHistoryCursor(true)
+			getHistoryCommand(&s)
 
-		case "hello":
-			handleSendHello(conn, words)
+		case keyboard.KeyTab:
+			autocomplete(&s)
 
-		case "root":
-			handleGetRoot(client, words)
+		case keyboard.KeyEsc:
+			fmt.Fprintln(os.Stdout, "")
+			return
 
-		case "data":
-			handleGetData(client, conn, words)
+		case keyboard.KeyEnter:
+			fmt.Fprintln(os.Stdout, "")
+			execCommand(client, conn, s)
+			fmt.Fprint(os.Stdout, "\n$> ")
+			s = ""
 
-		case "data_dl":
-			handleGetDataDL(client, conn, words)
+		case keyboard.KeyBackspace2:
+			if len(s) != 0 {
+				s = s[:len(s)-1]
+				fmt.Fprintf(os.Stdout, "\r%s%s \r%s%s", prompt, s, prompt, s)
+			}
 
-		case "help":
-			print_help()
+		case keyboard.KeySpace: // Default case doesn't work with space idk why
+			fmt.Print(" ")
+			s += " "
 
 		default:
-			fmt.Println("Unknown command ;-;")
-
+			fmt.Print(string(char))
+			s += string(char)
 		}
-		fmt.Fprint(os.Stdout, "$> ")
-
 	}
 }
 
