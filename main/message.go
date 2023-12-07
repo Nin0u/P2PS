@@ -118,7 +118,7 @@ func reemit(conn net.PacketConn, addr net.Addr, message *Message) (int, error) {
 	}
 
 	//Atomic Operation !!!
-	//Here we want to prevent from double wg.done() because it's causes crashes
+	//Here we want to prevent from double wg.done() because it causes crashes
 	//Assure that nobody is going to do a wg.done() !
 	//If someone do a wg.done() before -> we have received the packet and have timeout, it's weird but acceptable
 	sync_map.mutex.Lock()
