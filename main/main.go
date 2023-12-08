@@ -106,7 +106,7 @@ func Recv(client *http.Client, conn net.PacketConn) {
 }
 
 func main() {
-	export("../sujet.pdf")
+	export("./Test")
 
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {

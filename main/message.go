@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strings"
@@ -352,7 +353,7 @@ func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node
 		}
 		chunk := make([]byte, 1024)
 		n, err := file.ReadAt(chunk, node.Num)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			fmt.Println("[sendDatum] Error read chunk", node.Path, err.Error())
 			return -1, err
 		}

@@ -130,7 +130,7 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 			fmt.Println("[HandleHelloReply] Didn't find peer. Creating a new one")
 		}
 
-		// First, ask the server the peer's public key
+		//First, ask the server the peer's public key
 		key, err := GetKey(client, name_sender)
 		if err != nil {
 			if debug_handler {
@@ -142,7 +142,7 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 		data := message[:7+len]
 		signature := message[7+len:]
 
-		// If signature is verified add the peer to the cache
+		//If signature is verified add the peer to the cache
 		if VerifySignature(key, data, signature) {
 			Add_cached_peer(BuildPeer(client, message, addr_sender))
 		} else {
@@ -156,7 +156,7 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 	} else { // I know the peer
 		data := message[:7+len]
 		signature := message[7+len:]
-		// I have the peer's verification key
+		//I have the peer's verification key
 		if VerifySignature(cache_peers.list[index_peer].PublicKey[:], data, signature) {
 			// Update his address and the timestamp
 			AddAddrToPeer(&cache_peers.list[index_peer], addr_sender)
@@ -189,6 +189,7 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 	if check != [32]byte(hash) {
 		if debug_handler {
 			fmt.Printf("[HandleDatum] Invalid checksum : Given Hash = %x, Expected Hash = %x\n", hash, check)
+			fmt.Println("[HandleDatum]", hash, value)
 		}
 		return
 	}
@@ -221,6 +222,7 @@ func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sende
 
 	node, ok := map_export[[32]byte(hash)]
 	if !ok {
+		//fmt.Println("No Datum :", hash)
 		_, err := sendNoDatum(conn, addr_sender, [32]byte(hash), getID(message))
 		if err != nil {
 			if debug_handler {
@@ -229,5 +231,7 @@ func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sende
 		}
 		return
 	}
+
+	//fmt.Println("Node :", node)
 	sendDatum(conn, addr_sender, [32]byte(hash), getID(message), node)
 }

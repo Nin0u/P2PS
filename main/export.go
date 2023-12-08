@@ -27,6 +27,7 @@ func buildExportNode(path string, hash [32]byte, num int64, type_file byte) *Exp
 }
 
 func exportFile(path string) *ExportNode {
+	fmt.Println("[exportFile]", path)
 	file, err := os.OpenFile(path, os.O_RDONLY, os.ModePerm)
 	if err != nil {
 		fmt.Println("[exportFile] error open", path, err.Error())
@@ -45,7 +46,7 @@ func exportFile(path string) *ExportNode {
 			return nil
 		}
 
-		data := append([]byte{CHUNK}, chunk...)
+		data := append([]byte{CHUNK}, chunk[:n]...)
 
 		hash := sha256.Sum256(data)
 
@@ -93,6 +94,7 @@ func exportFile(path string) *ExportNode {
 }
 
 func exportDirectory(path string) *ExportNode {
+	fmt.Println("[exportDirectory]", path)
 	entry, err := os.ReadDir(path)
 	if err != nil {
 		fmt.Println("[exportDirectory] Error ReadDir ", path, err.Error())
@@ -117,6 +119,7 @@ func exportDirectory(path string) *ExportNode {
 		hashhash = append(hashhash, name[:]...)
 		hashhash = append(hashhash, node.Hash[:]...)
 	}
+	fmt.Println(hashhash)
 	hash := sha256.Sum256(hashhash)
 	node := buildExportNode(path, hash, 0, DIRECTORY)
 	node.Children = children
