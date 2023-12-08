@@ -101,8 +101,8 @@ func moveInputCursor(left bool, s *string) {
 func addCharToCommand(c string, s *string) {
 	if input_cursor < len(*s) {
 		*s = (*s)[:input_cursor] + c + (*s)[input_cursor:]
-		fmt.Printf("\r%s%s\r%s%s", prompt, *s, prompt, (*s)[:input_cursor])
 		input_cursor++
+		fmt.Printf("\r%s%s\r%s%s", prompt, *s, prompt, (*s)[:input_cursor])
 	} else {
 		(*s) += c
 		input_cursor = len(*s)
