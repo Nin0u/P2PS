@@ -145,10 +145,9 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 	}
 
 	id.incr()
-
-	// TODO : error ?
 	copy(message.Body[4:], name)
-
+	sign := computeSignature(message.build())
+	message.Signature = sign
 	if debug_message {
 		fmt.Printf("[sendHello] Hello : %x\n", message.build())
 	}
@@ -166,8 +165,9 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 		Body:   make([]byte, len+4),
 	}
 
-	// TODO : error ?
 	copy(message.Body[4:], name)
+	sign := computeSignature(message.build())
+	message.Signature = sign
 
 	if debug_message {
 		fmt.Printf("[sendHelloReply] HelloReply : %x\n", message.build())
@@ -185,6 +185,12 @@ func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, er
 		Type:   PublicKeyReply,
 		Length: 0,
 	}
+
+	message.Body = make([]byte, 64)
+	publicKey.X.FillBytes(message.Body[:32])
+	publicKey.Y.FillBytes(message.Body[32:])
+	sign := computeSignature(message.build())
+	message.Signature = sign
 
 	if debug_message {
 		fmt.Printf("[sendPublicKeyReply] KeyReply : %x\n", message.build())
@@ -204,7 +210,9 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) 
 	}
 	hash := sha256.Sum256([]byte(""))
 
-	copy(message.Body[:], hash[:])
+	message.Body = hash[:]
+	sign := computeSignature(message.build())
+	message.Signature = sign
 
 	if debug_message {
 		fmt.Printf("[sendRootReply] RootReply : %x\n", message.build())

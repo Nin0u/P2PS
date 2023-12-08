@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/eiannone/keyboard"
 )
@@ -19,15 +20,15 @@ type Command struct {
 }
 
 var rest_commands = []Command{
-	{CommandName: "list   ", Argument: "                   ", HelpText: "list all peers"},
-	{CommandName: "addr   ", Argument: "<peername>         ", HelpText: "list addresses of the peer"},
-	{CommandName: "key    ", Argument: "<peername>         ", HelpText: "get the peer's public key"},
-	{CommandName: "root   ", Argument: "<peername>         ", HelpText: "get the peer's root"},
+	{CommandName: "list", Argument: "", HelpText: "list all peers"},
+	{CommandName: "addr", Argument: "<peername>", HelpText: "list addresses of the peer"},
+	{CommandName: "key", Argument: "<peername>", HelpText: "get the peer's public key"},
+	{CommandName: "root", Argument: "<peername>", HelpText: "get the peer's root"},
 }
 
 var p2p_commands = []Command{
-	{CommandName: "hello  ", Argument: "<addr>             ", HelpText: "sends hello to the given address"},
-	{CommandName: "data   ", Argument: "<peername>         ", HelpText: "list data of the peer"},
+	{CommandName: "hello", Argument: "<addr>", HelpText: "sends hello to the given address"},
+	{CommandName: "data", Argument: "<peername>", HelpText: "list data of the peer"},
 	{CommandName: "data_dl", Argument: "<peername> [<path>]", HelpText: "download data of the peer. If a path is given then it will download all the data from this path."},
 }
 
@@ -135,6 +136,18 @@ func print_help() {
 	fmt.Println("Press escape to exit the program.")
 }
 
+func ConnKeeper(client *http.Client, conn net.PacketConn, addr net.Addr) {
+	sleep_time, _ := time.ParseDuration("30s")
+	for {
+		time.Sleep(sleep_time)
+		_, err := sendHello(conn, addr, username)
+		if err != nil {
+			fmt.Println("[ConnKeep] Error while sending hello :", err.Error())
+			return
+		}
+	}
+}
+
 func start(client *http.Client, conn net.PacketConn) {
 	fmt.Println("Connecting to server :", server)
 	addr_list, err := GetAddresses(client, server_name_peer)
@@ -158,6 +171,8 @@ func start(client *http.Client, conn net.PacketConn) {
 		fmt.Println("Error send hello :", err.Error())
 		return
 	}
+
+	go ConnKeeper(client, conn, addr)
 }
 
 func execCommand(client *http.Client, conn net.PacketConn, content string) {
@@ -171,11 +186,14 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 	case "addr":
 		handleListAddr(client, words)
 
-	case "hello":
-		handleSendHello(conn, words)
+	case "key":
+		handleGetKey(client, words)
 
 	case "root":
 		handleGetRoot(client, words)
+
+	case "hello":
+		handleSendHello(conn, words)
 
 	case "data":
 		handleGetData(client, conn, words)
@@ -274,7 +292,7 @@ func handleList(client *http.Client) {
 		return
 	}
 
-	fmt.Println("Voici la liste des pairs :")
+	fmt.Println("Here are the registered peers :")
 	for i := 0; i < len(list); i++ {
 		fmt.Println(list[i])
 	}
@@ -292,7 +310,7 @@ func handleListAddr(client *http.Client, words []string) {
 		return
 	}
 
-	fmt.Println("Here are the addresses of ", words[1])
+	fmt.Println("Here are the addresses of ", words[1], ":")
 
 	for i := 0; i < len(list); i++ {
 		fmt.Println(list[i])
@@ -319,6 +337,21 @@ func handleSendHello(conn net.PacketConn, words []string) {
 	}
 }
 
+func handleGetKey(client *http.Client, words []string) {
+	if len(words) != 2 {
+		fmt.Println("Wrong number of argument !")
+		return
+	}
+
+	key, err := GetKey(client, words[1])
+	if err != nil {
+		fmt.Println("Error getKey http : ", err.Error())
+		return
+	}
+
+	fmt.Printf("Public key of peer %s is : %x\n", words[1], string(key))
+}
+
 func handleGetRoot(client *http.Client, words []string) {
 	if len(words) != 2 {
 		fmt.Println("Wrong number of argument !")
@@ -332,7 +365,7 @@ func handleGetRoot(client *http.Client, words []string) {
 		return
 	}
 
-	fmt.Printf("%x\n", string(hash))
+	fmt.Printf("Root of peer %s is : %x\n", words[1], string(hash))
 }
 
 func handleGetData(client *http.Client, conn net.PacketConn, words []string) {

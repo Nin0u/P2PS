@@ -49,9 +49,10 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 			return
 		}
 
+		data := message[:7+len]
 		signature := message[7+len:]
 
-		if VerifySignature(key, signature) {
+		if VerifySignature(key, data, signature) {
 			Add_cached_peer(BuildPeer(client, message, addr_sender))
 		} else {
 			// TODO : Sinon Send Error ?
@@ -62,9 +63,10 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 		}
 
 	} else { // I know the peer
+		data := message[:7+len]
 		signature := message[7+len:]
 		// I have the peer's verification key
-		if VerifySignature(cache_peers.list[index].PublicKey[:], signature) {
+		if VerifySignature(cache_peers.list[index].PublicKey[:], data, signature) {
 			// Update his address and the timestamp
 			AddAddrToPeer(&cache_peers.list[index], addr_sender)
 			cache_peers.list[index].LastMessageTime = time.Now()
@@ -148,10 +150,11 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 			return
 		}
 
+		data := message[:7+len]
 		signature := message[7+len:]
 
 		// If signature is verified add the peer to the cache
-		if VerifySignature(key, signature) {
+		if VerifySignature(key, data, signature) {
 			Add_cached_peer(BuildPeer(client, message, addr_sender))
 		} else {
 			// TODO : Sinon Send Error ?
@@ -162,9 +165,10 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 		}
 
 	} else { // I know the peer
+		data := message[:7+len]
 		signature := message[7+len:]
 		// I have the peer's verification key
-		if VerifySignature(cache_peers.list[index_peer].PublicKey[:], signature) {
+		if VerifySignature(cache_peers.list[index_peer].PublicKey[:], data, signature) {
 			// Update his address and the timestamp
 			AddAddrToPeer(&cache_peers.list[index_peer], addr_sender)
 			cache_peers.list[index_peer].LastMessageTime = time.Now()
@@ -211,13 +215,4 @@ func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 	fmt.Printf("NoDatum for the hash : %x\n", hash)
 
 	AddDatumCache([32]byte(hash), nil)
-}
-
-// TODO : à déplacer + implémenter
-func VerifySignature(key []byte, signature []byte) bool {
-	// Skip checking if no key found
-	if key == nil {
-		return true
-	}
-	return true
 }
