@@ -106,17 +106,6 @@ func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender ne
 	}
 }
 
-func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
-	hash := message[7 : 7+32]
-	// TODO : adapter avec export !
-	_, err := sendNoDatum(conn, addr_sender, [32]byte(hash), getID(message))
-	if err != nil {
-		if debug_handler {
-			fmt.Println("[HandleGetDatum] Error while sending datum :", err)
-		}
-	}
-}
-
 func HandleErrorReply(message []byte) {
 	len := getLength(message)
 	fmt.Printf("Error :%s\n", message[7:7+len])
@@ -215,4 +204,30 @@ func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 	fmt.Printf("NoDatum for the hash : %x\n", hash)
 
 	AddDatumCache([32]byte(hash), nil)
+}
+
+func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
+	if debug_handler {
+		fmt.Println("[HandleGetDatum] GetDatum Received !")
+	}
+
+	len := getLength(message)
+	if len != 32 {
+		fmt.Println("[HandleGetDatum] Error on the length !")
+		return
+	}
+
+	hash := message[7 : 7+32]
+
+	node, ok := map_export[[32]byte(hash)]
+	if !ok {
+		_, err := sendNoDatum(conn, addr_sender, [32]byte(hash), getID(message))
+		if err != nil {
+			if debug_handler {
+				fmt.Println("[HandleGetDatum] Error while sending datum :", err)
+			}
+		}
+		return
+	}
+	sendDatum(conn, addr_sender, [32]byte(hash), getID(message), node)
 }

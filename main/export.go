@@ -15,6 +15,8 @@ type ExportNode struct {
 	Type     byte
 }
 
+var rootExport *ExportNode = nil
+
 // Map containing Tree's Node. It serves to access efficately to the data ! Needed for handleGetDatum
 var map_export map[[32]byte]*ExportNode = map[[32]byte]*ExportNode{}
 
@@ -43,7 +45,9 @@ func exportFile(path string) *ExportNode {
 			return nil
 		}
 
-		hash := sha256.Sum256(chunk)
+		data := append([]byte{CHUNK}, chunk...)
+
+		hash := sha256.Sum256(data)
 
 		buff = append(buff, buildExportNode(path, hash, int64(num), CHUNK))
 		num += n
@@ -63,7 +67,8 @@ func exportFile(path string) *ExportNode {
 
 		children := make([]*ExportNode, 0)
 		len_tab := min(32+index, len(buff))
-		hashhash := make([]byte, len_tab*32)
+		hashhash := make([]byte, 0)
+		hashhash = append(hashhash, TREE)
 		for i := 0; index < len_tab; i++ {
 			children = append(children, buff[index])
 			hashhash = append(hashhash, children[i].Hash[:]...)
@@ -85,6 +90,53 @@ func exportFile(path string) *ExportNode {
 
 	return buff[0]
 
+}
+
+func exportDirectory(path string) *ExportNode {
+	entry, err := os.ReadDir(path)
+	if err != nil {
+		fmt.Println("[exportDirectory] Error ReadDir ", path, err.Error())
+		return nil
+	}
+
+	children := make([]*ExportNode, 0)
+
+	hashhash := make([]byte, 0)
+	hashhash = append(hashhash, DIRECTORY)
+	for _, e := range entry {
+		var node *ExportNode
+		if e.IsDir() {
+			node = exportDirectory(path + "/" + e.Name())
+		} else {
+			node = exportFile(path + "/" + e.Name())
+		}
+
+		children = append(children, node)
+		name := [32]byte{}
+		copy(name[:], []byte(e.Name()))
+		hashhash = append(hashhash, name[:]...)
+		hashhash = append(hashhash, node.Hash[:]...)
+	}
+	hash := sha256.Sum256(hashhash)
+	node := buildExportNode(path, hash, 0, DIRECTORY)
+	node.Children = children
+	return node
+}
+
+func export(path string) {
+
+	info, err := os.Stat(path)
+	if err != nil {
+		fmt.Println("[Export] Error stat", path, err.Error())
+		return
+	}
+
+	//TODO: Vider la map !
+	if info.IsDir() {
+		rootExport = exportDirectory(path)
+	} else {
+		rootExport = exportFile(path)
+	}
 }
 
 func writeExportTree(root *ExportNode) {

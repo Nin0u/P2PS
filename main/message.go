@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -252,7 +254,12 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) 
 		Length: 32,
 		Body:   make([]byte, 32),
 	}
-	hash := sha256.Sum256([]byte(""))
+	hash := [32]byte{}
+	if rootExport == nil {
+		hash = sha256.Sum256([]byte(""))
+	} else {
+		hash = rootExport.Hash
+	}
 
 	message.Body = hash[:]
 	sign := computeSignature(message.build())
@@ -311,4 +318,49 @@ func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (i
 	return message.Id, err
 }
 
-//TODO: Datum
+func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node *ExportNode) (int32, error) {
+	message := Message{
+		Id:   id,
+		Dest: addr,
+		Type: Datum,
+	}
+
+	message.Body = make([]byte, 0)
+	message.Body = append(message.Body, hash[:]...)
+
+	message.Body = append(message.Body, node.Type)
+	if node.Type == DIRECTORY {
+		for i := 0; i < len(node.Children); i++ {
+			path := strings.Split(node.Children[i].Path, "/")
+			name := [32]byte{}
+			copy(name[:], path[len(path)-1])
+			if debug_message {
+				fmt.Println("[sendDatum] Name :", name)
+			}
+			message.Body = append(message.Body, name[:]...)
+			message.Body = append(message.Body, node.Children[i].Hash[:]...)
+		}
+	} else if node.Type == TREE {
+		for i := 0; i < len(node.Children); i++ {
+			message.Body = append(message.Body, node.Children[i].Hash[:]...)
+		}
+	} else {
+		file, err := os.OpenFile(node.Path, os.O_RDONLY, os.ModePerm)
+		if err != nil {
+			fmt.Println("[sendDatum] Error open chunk", node.Path, err.Error())
+			return -1, err
+		}
+		chunk := make([]byte, 1024)
+		n, err := file.ReadAt(chunk, node.Num)
+		if err != nil {
+			fmt.Println("[sendDatum] Error read chunk", node.Path, err.Error())
+			return -1, err
+		}
+
+		message.Body = append(message.Body, chunk[:n]...)
+	}
+	message.Length = uint16(len(message.Body))
+
+	_, err := conn.WriteTo(message.build(), addr)
+	return message.Id, err
+}

@@ -106,6 +106,8 @@ func Recv(client *http.Client, conn net.PacketConn) {
 }
 
 func main() {
+	export("../sujet.pdf")
+
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
 		if args[i] == "--debug" {
@@ -127,6 +129,8 @@ func main() {
 	}
 
 	conn, err := net.ListenPacket("udp", ":0")
+
+	fmt.Println(conn.LocalAddr().String())
 	if err != nil {
 		log.Fatal(err)
 	}
