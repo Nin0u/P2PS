@@ -177,27 +177,71 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 	return message.Id, err
 }
 
-// TODO: A changer quand on implémentera les signatures
-func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {
+func sendPublicKey(conn net.PacketConn, addr net.Addr) (int, error) {
 	message := Message{
-		Id:     id,
-		Dest:   addr,
-		Type:   PublicKeyReply,
-		Length: 0,
+		Id:      id.get(),
+		Dest:    addr,
+		Type:    PublicKey,
+		Length:  64,
+		Body:    make([]byte, 64),
+		Timeout: time.Second,
 	}
 
-	message.Body = make([]byte, 64)
+	id.incr()
 	publicKey.X.FillBytes(message.Body[:32])
 	publicKey.Y.FillBytes(message.Body[32:])
 	sign := computeSignature(message.build())
 	message.Signature = sign
 
 	if debug_message {
-		fmt.Printf("[sendPublicKeyReply] KeyReply : %x\n", message.build())
+		fmt.Printf("[sendPublicKey] PublicKey : %x\n", message.build())
+	}
+
+	return reemit(conn, addr, &message)
+}
+
+func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {
+	message := Message{
+		Id:     id,
+		Dest:   addr,
+		Type:   PublicKeyReply,
+		Length: 64,
+		Body:   make([]byte, 64),
+	}
+
+	publicKey.X.FillBytes(message.Body[:32])
+	publicKey.Y.FillBytes(message.Body[32:])
+	sign := computeSignature(message.build())
+	message.Signature = sign
+
+	if debug_message {
+		fmt.Printf("[sendPublicKeyReply] PublicKeyReply : %x\n", message.build())
 	}
 
 	_, err := conn.WriteTo(message.build(), addr)
 	return message.Id, err
+}
+
+func sendRoot(conn net.PacketConn, addr net.Addr) (int, error) {
+	message := Message{
+		Id:      id.get(),
+		Dest:    addr,
+		Type:    Root,
+		Length:  32,
+		Body:    make([]byte, 32),
+		Timeout: time.Second,
+	}
+	id.incr()
+
+	hash := sha256.Sum256([]byte(""))
+	message.Body = hash[:]
+	sign := computeSignature(message.build())
+	message.Signature = sign
+	if debug_message {
+		fmt.Printf("[sendRoot] Root : %x\n", message.build())
+	}
+
+	return reemit(conn, addr, &message)
 }
 
 func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {

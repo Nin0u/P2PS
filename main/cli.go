@@ -22,12 +22,14 @@ type Command struct {
 var rest_commands = []Command{
 	{CommandName: "list", Argument: "", HelpText: "list all peers"},
 	{CommandName: "addr", Argument: "<peername>", HelpText: "list addresses of the peer"},
-	{CommandName: "key", Argument: "<peername>", HelpText: "get the peer's public key"},
-	{CommandName: "root", Argument: "<peername>", HelpText: "get the peer's root"},
+	{CommandName: "get_key", Argument: "<peername>", HelpText: "get the peer's public key"},
+	{CommandName: "get_root", Argument: "<peername>", HelpText: "get the peer's root"},
 }
 
 var p2p_commands = []Command{
-	{CommandName: "hello", Argument: "<addr>", HelpText: "sends hello to the given address"},
+	{CommandName: "hello", Argument: "<addr>", HelpText: "sends Hello to the given address"},
+	{CommandName: "public_key", Argument: "<addr>", HelpText: "sends Publickey to the given address"},
+	{CommandName: "root", Argument: "<addr>", HelpText: "sends Root to the given address"},
 	{CommandName: "data", Argument: "<peername>", HelpText: "list data of the peer"},
 	{CommandName: "data_dl", Argument: "<peername> [<path>]", HelpText: "download data of the peer. If a path is given then it will download all the data from this path."},
 }
@@ -186,14 +188,18 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 	case "addr":
 		handleListAddr(client, words)
 
-	case "key":
+	case "get_key":
 		handleGetKey(client, words)
 
-	case "root":
+	case "get_root":
 		handleGetRoot(client, words)
 
 	case "hello":
 		handleSendHello(conn, words)
+	case "public_key":
+		handlePK(conn, words)
+	case "root":
+		handleR(conn, words)
 
 	case "data":
 		handleGetData(client, conn, words)
@@ -333,6 +339,42 @@ func handleSendHello(conn net.PacketConn, words []string) {
 
 	if err != nil {
 		fmt.Println("Error send hello :", err.Error())
+		return
+	}
+}
+
+func handlePK(conn net.PacketConn, words []string) {
+	if len(words) != 2 {
+		fmt.Println("Wrong number of argument !")
+		return
+	}
+	addr, err := net.ResolveUDPAddr("udp", words[1])
+	if err != nil {
+		fmt.Println("Error resolve addr", err.Error())
+		return
+	}
+	_, err = sendPublicKey(conn, addr)
+
+	if err != nil {
+		fmt.Println("Error send public_key :", err.Error())
+		return
+	}
+}
+
+func handleR(conn net.PacketConn, words []string) {
+	if len(words) != 2 {
+		fmt.Println("Wrong number of argument !")
+		return
+	}
+	addr, err := net.ResolveUDPAddr("udp", words[1])
+	if err != nil {
+		fmt.Println("Error resolve addr", err.Error())
+		return
+	}
+	_, err = sendRoot(conn, addr)
+
+	if err != nil {
+		fmt.Println("Error send root :", err.Error())
 		return
 	}
 }
