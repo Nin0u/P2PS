@@ -127,7 +127,7 @@ func main() {
 	}
 	GenKeys()
 
-	transport := &*http.DefaultTransport.(*http.Transport)
+	transport := http.DefaultTransport.(*http.Transport)
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	client := &http.Client{
 		Transport: transport,
