@@ -137,6 +137,9 @@ func reemit(conn net.PacketConn, addr net.Addr, message *Message) (int, error) {
 }
 
 func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
+	if debug_message {
+		fmt.Println("[sendHello] Called")
+	}
 	len := len(name)
 	message := Message{
 		Id:      id.get(),
@@ -159,6 +162,9 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 }
 
 func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (int32, error) {
+	if debug_message {
+		fmt.Println("[sendHelloReply] Called")
+	}
 	len := len(name)
 	message := Message{
 		Id:     id,
@@ -181,6 +187,9 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 }
 
 func sendPublicKey(conn net.PacketConn, addr net.Addr) (int, error) {
+	if debug_message {
+		fmt.Println("[sendPublicKey] Called")
+	}
 	message := Message{
 		Id:      id.get(),
 		Dest:    addr,
@@ -204,6 +213,9 @@ func sendPublicKey(conn net.PacketConn, addr net.Addr) (int, error) {
 }
 
 func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {
+	if debug_message {
+		fmt.Println("[sendPublicKeyReply] Called")
+	}
 	message := Message{
 		Id:     id,
 		Dest:   addr,
@@ -214,6 +226,7 @@ func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, er
 
 	publicKey.X.FillBytes(message.Body[:32])
 	publicKey.Y.FillBytes(message.Body[32:])
+
 	sign := computeSignature(message.build())
 	message.Signature = sign
 
@@ -226,6 +239,9 @@ func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, er
 }
 
 func sendRoot(conn net.PacketConn, addr net.Addr) (int, error) {
+	if debug_message {
+		fmt.Println("[sendRoot] Called")
+	}
 	message := Message{
 		Id:      id.get(),
 		Dest:    addr,
@@ -248,6 +264,9 @@ func sendRoot(conn net.PacketConn, addr net.Addr) (int, error) {
 }
 
 func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {
+	if debug_message {
+		fmt.Println("[sendRootReply] Called")
+	}
 	message := Message{
 		Id:     id,
 		Dest:   addr,
@@ -275,6 +294,10 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) 
 }
 
 func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error) {
+	if debug_message {
+		fmt.Println("[sendGetDatum] Called")
+	}
+
 	_, err := sendHello(conn, addr, username)
 	if err != nil {
 		if debug_message {
@@ -301,6 +324,9 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 }
 
 func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (int32, error) {
+	if debug_message {
+		fmt.Println("[sendNoDatum] Called")
+	}
 	message := Message{
 		Id:     id,
 		Dest:   addr,
@@ -320,6 +346,10 @@ func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (i
 }
 
 func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node *ExportNode) (int32, error) {
+	if debug_message {
+		fmt.Println("[sendDatum] Called")
+	}
+
 	message := Message{
 		Id:   id,
 		Dest: addr,

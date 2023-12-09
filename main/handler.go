@@ -17,14 +17,18 @@ const (
 
 var debug_handler bool = false
 
-// TODO : Il va falloir une fonction ici pour vérifier les signatures lorsqu'on les implémentera et l'appeler dans chaque handle
-
 func HandleError(message []byte) {
+	if debug_handler {
+		fmt.Println("[HandleError] Triggered")
+	}
 	len := getLength(message)
 	fmt.Printf("Error :%s\n", message[7:7+len])
 }
 
 func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr, name string) {
+	if debug_handler {
+		fmt.Println("[HandleHello] Triggered")
+	}
 	if nb_byte < 7+4+1 { // Sender's name is not empty
 		if debug_handler {
 			fmt.Println("[HandleHello] The sender has no name")
@@ -34,8 +38,12 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 
 	len := getLength(message)
 	name_sender := string(message[7+4 : 7+len])
+	data := message[:7+len]
+	signature := message[7+len:]
 	index := FindCachedPeerByName(name_sender)
-	if index == -1 { // I don't know the peer
+
+	// I don't know the peer
+	if index == -1 {
 		if debug_handler {
 			fmt.Println("[HandleHello] Didn't find peer in cache")
 		}
@@ -49,13 +57,9 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 			return
 		}
 
-		data := message[:7+len]
-		signature := message[7+len:]
-
 		if VerifySignature(key, data, signature) {
 			Add_cached_peer(BuildPeer(client, message, addr_sender))
 		} else {
-			// TODO : Sinon Send Error ?
 			if debug_handler {
 				fmt.Println("[HandleHello] Invalid signature with fetched key")
 			}
@@ -63,15 +67,12 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 		}
 
 	} else { // I know the peer
-		data := message[:7+len]
-		signature := message[7+len:]
 		// I have the peer's verification key
 		if VerifySignature(cache_peers.list[index].PublicKey[:], data, signature) {
 			// Update his address and the timestamp
 			AddAddrToPeer(&cache_peers.list[index], addr_sender)
 			cache_peers.list[index].LastMessageTime = time.Now()
 		} else {
-			// TODO : Sinon Send Error ?
 			if debug_handler {
 				fmt.Println("[HandleHello] Invalid signature with known peer")
 			}
@@ -89,6 +90,9 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 }
 
 func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
+	if debug_handler {
+		fmt.Println("[HandlePublicKey] Triggered")
+	}
 	_, err := sendPublicKeyReply(conn, addr_sender, getID(message))
 	if err != nil {
 		if debug_handler {
@@ -98,6 +102,9 @@ func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_send
 }
 
 func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
+	if debug_handler {
+		fmt.Println("[HandleRoot] Triggered")
+	}
 	_, err := sendRootReply(conn, addr_sender, getID(message))
 	if err != nil {
 		if debug_handler {
@@ -107,8 +114,11 @@ func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender ne
 }
 
 func HandleErrorReply(message []byte) {
+	if debug_handler {
+		fmt.Println("[HandleErrorReply] Triggered")
+	}
 	len := getLength(message)
-	fmt.Printf("Error :%s\n", message[7:7+len])
+	fmt.Printf("ErrorReply :%s\n", message[7:7+len])
 }
 
 func unblock(message_id int32) {
@@ -119,6 +129,9 @@ func unblock(message_id int32) {
 }
 
 func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sender net.Addr) {
+	if debug_handler {
+		fmt.Println("[HandleHelloReply] Triggered")
+	}
 	defer unblock(getID(message))
 	len := getLength(message)
 	name_sender := string(message[7+4 : 7+len])
@@ -146,7 +159,6 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 		if VerifySignature(key, data, signature) {
 			Add_cached_peer(BuildPeer(client, message, addr_sender))
 		} else {
-			// TODO : Sinon Send Error ?
 			if debug_handler {
 				fmt.Println("[HandleHelloReply] Invalid signature with fetched key")
 			}

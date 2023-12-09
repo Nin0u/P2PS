@@ -93,7 +93,14 @@ func isFullOfZeros(data []byte) bool {
 func VerifySignature(key []byte, data []byte, signature []byte) bool {
 	// Skip checking if no key found
 	if key == nil || isFullOfZeros(key) {
+		if debug_signature {
+			fmt.Println("[VerifySignature] Key is nil or full of zeros, skipping verification")
+		}
 		return true
+	}
+
+	if debug_signature {
+		fmt.Printf("[VerifySignature] Verifying signature %x on data %x with key %x\n", signature, data, key)
 	}
 
 	pk := parsePubKey(key)
