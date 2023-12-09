@@ -93,10 +93,10 @@ func Recv(client *http.Client, conn net.PacketConn) {
 				HandleErrorReply(message)
 
 			case PublicKeyReply:
-				HandlePublicKeyReply(message, addr_sender)
+				HandlePublicKeyReply(message, nb_byte, addr_sender)
 
 			case RootReply:
-				HandleRootReply(message, addr_sender)
+				HandleRootReply(message, nb_byte, addr_sender)
 
 			case Datum:
 				HandleDatum(message, nb_byte, addr_sender, conn)

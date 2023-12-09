@@ -40,7 +40,7 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 	len := getLength(message)
 	name_sender := string(message[7+4 : 7+len])
 	data := message[:7+len]
-	signature := message[7+len:]
+	signature := message[7+len : nb_byte]
 	index := FindCachedPeerByName(name_sender)
 
 	// I don't know the peer
@@ -106,7 +106,7 @@ func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_send
 
 	len := getLength(message)
 	data := message[:7+len]
-	signature := message[7+len:]
+	signature := message[7+len : nb_byte]
 
 	if VerifySignature(cache_peers.list[index].PublicKey[:], data, signature) {
 		_, err := sendPublicKeyReply(conn, addr_sender, getID(message))
@@ -139,7 +139,7 @@ func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender ne
 
 	len := getLength(message)
 	data := message[:7+len]
-	signature := message[7+len:]
+	signature := message[7+len : nb_byte]
 
 	if VerifySignature(cache_peers.list[index].PublicKey[:], data, signature) {
 		_, err := sendRootReply(conn, addr_sender, getID(message))
@@ -171,7 +171,7 @@ func unblock(message_id int32) {
 	}
 }
 
-func HandlePublicKeyReply(message []byte, addr_sender net.Addr) {
+func HandlePublicKeyReply(message []byte, nb_byte int, addr_sender net.Addr) {
 	if debug_handler {
 		fmt.Println("[HandlePublicKeyReply] Triggered")
 	}
@@ -189,7 +189,7 @@ func HandlePublicKeyReply(message []byte, addr_sender net.Addr) {
 	len := getLength(message)
 	data := message[:7+len]
 	key := message[7 : 7+len]
-	signature := message[7+len:]
+	signature := message[7+len : nb_byte]
 
 	if len != 0 && !bytes.Equal(key, cache_peers.list[index].PublicKey[:]) {
 		fmt.Printf("[HandlePublicKeyReply] Key given is different from what is stored in cache : %x != %x\n", key, cache_peers.list[index].PublicKey[:])
@@ -206,7 +206,7 @@ func HandlePublicKeyReply(message []byte, addr_sender net.Addr) {
 	}
 }
 
-func HandleRootReply(message []byte, addr_sender net.Addr) {
+func HandleRootReply(message []byte, nb_byte int, addr_sender net.Addr) {
 	if debug_handler {
 		fmt.Println("[HandleRootReply] Triggered")
 	}
@@ -224,7 +224,7 @@ func HandleRootReply(message []byte, addr_sender net.Addr) {
 	len := getLength(message)
 	data := message[:7+len]
 	root := message[7 : 7+len]
-	signature := message[7+len:]
+	signature := message[7+len : nb_byte]
 
 	if VerifySignature(cache_peers.list[index].PublicKey[:], data, signature) {
 		fmt.Printf("Root of %s is : %x\n", cache_peers.list[index].Name, root)
@@ -236,13 +236,15 @@ func HandleRootReply(message []byte, addr_sender net.Addr) {
 	}
 }
 
-func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sender net.Addr) {
+func HandleHelloReply(client *http.Client, message []byte, nb_bytes int, addr_sender net.Addr) {
 	if debug_handler {
 		fmt.Println("[HandleHelloReply] Triggered")
 	}
 	defer unblock(getID(message))
 	len := getLength(message)
 	name_sender := string(message[7+4 : 7+len])
+	data := message[:7+len]
+	signature := message[7+len : nb_bytes]
 	index_peer := FindCachedPeerByName(name_sender)
 
 	// I don't know the peer
@@ -260,9 +262,6 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 			return
 		}
 
-		data := message[:7+len]
-		signature := message[7+len:]
-
 		//If signature is verified add the peer to the cache
 		if VerifySignature(key, data, signature) {
 			Add_cached_peer(BuildPeer(client, message, addr_sender))
@@ -274,15 +273,12 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 		}
 
 	} else { // I know the peer
-		data := message[:7+len]
-		signature := message[7+len:]
 		//I have the peer's verification key
 		if VerifySignature(cache_peers.list[index_peer].PublicKey[:], data, signature) {
 			// Update his address and the timestamp
 			AddAddrToPeer(&cache_peers.list[index_peer], addr_sender)
 			cache_peers.list[index_peer].LastMessageTime = time.Now()
 		} else {
-			// TODO : Sinon Send Error ?
 			if debug_handler {
 				fmt.Println("[HandleHelloReply] Invalid signature with known peer")
 			}
