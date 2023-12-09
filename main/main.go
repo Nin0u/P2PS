@@ -83,11 +83,8 @@ func Recv(client *http.Client, conn net.PacketConn) {
 			case GetDatum:
 				HandleGetDatum(conn, message, nb_byte, addr_sender)
 
-			case NatTraversalRequest:
-				//TODO: Plus Tard
-
 			case NatTraversal:
-				//TODO: Plus tard
+				HandleNatTraversal(conn, message, nb_byte, addr_sender)
 
 			case ErrorReply:
 				HandleErrorReply(message)
@@ -135,8 +132,6 @@ func main() {
 	}
 
 	conn, err := net.ListenPacket("udp", ":0")
-
-	fmt.Println(conn.LocalAddr().String())
 	if err != nil {
 		log.Fatal(err)
 	}

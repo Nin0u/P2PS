@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"time"
 )
 
@@ -350,4 +351,34 @@ func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sende
 
 	//fmt.Println("Node :", node)
 	sendDatum(conn, addr_sender, [32]byte(hash), getID(message), node)
+}
+
+// ? Pour plus tard, Quand on fait un send hello, si il timeout
+// ? On lance un NatTraversalRequest et va attendre un hello de l'addr qu'on a mis dedans !
+// ? Au moment où on recoit un hello, il faut peut etre débloquer le gars en question !
+// ? Au moment où on est débloqué, il faut relancer un hello !
+// ! Le sendHello est bloquant, donc à faire dans un autre thread
+// * Peut etre que lui doit attendre un hello apres le sendHello ? on verra...
+func HandleNatTraversal(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
+	//Parse Addr
+	addr_byte := message[7:nb_byte]
+	if debug_handler {
+		fmt.Println("[HandleNatTraversal]", addr_byte)
+	}
+
+	ip, ok := netip.AddrFromSlice(addr_byte[:len(addr_byte)-2])
+	if !ok {
+		fmt.Println("[HandleNatTarversal] Error addr from slice handleNat :", addr_byte)
+		return
+	}
+	port := uint16(addr_byte[len(addr_byte)-2])<<8 + uint16(addr_byte[len(addr_byte)-1])
+	addr_string := netip.AddrPortFrom(ip, port).String()
+	fmt.Println("addr_string :", addr_string)
+	addr_dest, err := net.ResolveUDPAddr("udp", addr_string)
+	if err != nil {
+		fmt.Println("[HandleNatTarversal] Error build addr :", addr_string, err.Error())
+		return
+	}
+
+	sendHello(conn, addr_dest, username)
 }

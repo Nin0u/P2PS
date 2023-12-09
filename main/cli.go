@@ -285,6 +285,24 @@ func cli(client *http.Client, conn net.PacketConn) {
 		case keyboard.KeyCtrlC:
 			fmt.Println(runtime.NumGoroutine())
 
+		case keyboard.KeyCtrlN:
+			fmt.Println("CTRL + N")
+			//! Pour Test on changera username !
+			addrs, err := GetAddresses(client, username)
+			if err != nil {
+				fmt.Println("Error GETADDR CTRL + N :", err.Error())
+				continue
+			}
+
+			fmt.Println("CTRL + N/RESOLVE")
+			addr, err := net.ResolveUDPAddr("udp", addrs[0])
+			if err != nil {
+				fmt.Println("Error RESOLVEADDR CTRL + N :", err.Error())
+				continue
+			}
+			fmt.Println("CTRL + N/NATREQ")
+			sendNatRequest(conn, addr)
+
 		default:
 			addCharToCommand(string(char), &s)
 		}

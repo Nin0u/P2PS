@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"strings"
 	"sync"
@@ -393,5 +394,36 @@ func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node
 	message.Length = uint16(len(message.Body))
 
 	_, err := conn.WriteTo(message.build(), addr)
+	return message.Id, err
+}
+
+func sendNatRequest(conn net.PacketConn, addr net.Addr) (int32, error) {
+	message := Message{
+		Id:   id.get(),
+		Type: NatTraversalRequest,
+	}
+
+	index := FindCachedPeerByName(server_name_peer)
+	cache_peers.mutex.Lock()
+	message.Dest = cache_peers.list[index].Addr[1]
+	cache_peers.mutex.Unlock()
+
+	id.incr()
+
+	ip, err := netip.ParseAddrPort(addr.String())
+	if err != nil {
+		fmt.Println("[sendNatRequest] Error parse addr :", err.Error())
+		return -1, nil
+	}
+
+	ip_byte := ip.Addr().AsSlice()
+	port := ip.Port()
+	message.Body = make([]byte, 0)
+	message.Body = append(message.Body, ip_byte...)
+	message.Body = append(message.Body, byte(port>>8%(1<<8)))
+	message.Body = append(message.Body, byte(port%(1<<8)))
+	message.Length = uint16(len(message.Body))
+
+	_, err = conn.WriteTo(message.build(), message.Dest)
 	return message.Id, err
 }
