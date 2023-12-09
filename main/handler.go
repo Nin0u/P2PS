@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"net"
@@ -93,11 +94,32 @@ func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_send
 	if debug_handler {
 		fmt.Println("[HandlePublicKey] Triggered")
 	}
-	_, err := sendPublicKeyReply(conn, addr_sender, getID(message))
-	if err != nil {
+
+	// Make sure I known the peer (must have sent hello before)
+	index := FindCachedPeerByAddr(addr_sender)
+	if index == -1 {
 		if debug_handler {
-			fmt.Println("[HandlePublicKey] Error while sending public key :", err)
+			fmt.Println("[HandlePublicKey] Peer not in cache. Message will be ignored")
 		}
+		return
+	}
+
+	len := getLength(message)
+	data := message[:7+len]
+	signature := message[7+len:]
+
+	if VerifySignature(cache_peers.list[index].PublicKey[:], data, signature) {
+		_, err := sendPublicKeyReply(conn, addr_sender, getID(message))
+		if err != nil {
+			if debug_handler {
+				fmt.Println("[HandlePublicKey] Error while sending public key :", err)
+			}
+		}
+	} else {
+		if debug_handler {
+			fmt.Println("[HandlePublicKey] Invalid signature with known peer")
+		}
+		return
 	}
 }
 
@@ -105,11 +127,32 @@ func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender ne
 	if debug_handler {
 		fmt.Println("[HandleRoot] Triggered")
 	}
-	_, err := sendRootReply(conn, addr_sender, getID(message))
-	if err != nil {
+
+	// Make sure I known the peer (must have sent hello before)
+	index := FindCachedPeerByAddr(addr_sender)
+	if index == -1 {
 		if debug_handler {
-			fmt.Println("[HandleRoot] Error while sending root :", err)
+			fmt.Println("[HandleRoot] Peer not in cache. Message will be ignored")
 		}
+		return
+	}
+
+	len := getLength(message)
+	data := message[:7+len]
+	signature := message[7+len:]
+
+	if VerifySignature(cache_peers.list[index].PublicKey[:], data, signature) {
+		_, err := sendRootReply(conn, addr_sender, getID(message))
+		if err != nil {
+			if debug_handler {
+				fmt.Println("[HandleRoot] Error while sending root :", err)
+			}
+		}
+	} else {
+		if debug_handler {
+			fmt.Println("[HandleRoot] Invalid signature with known peer")
+		}
+		return
 	}
 }
 
@@ -125,6 +168,71 @@ func unblock(message_id int32) {
 	wg, b := GetSyncMap(message_id)
 	if b {
 		wg.Done()
+	}
+}
+
+func HandlePublicKeyReply(message []byte, addr_sender net.Addr) {
+	if debug_handler {
+		fmt.Println("[HandlePublicKeyReply] Triggered")
+	}
+	defer unblock(getID(message))
+
+	// Make sure I known the peer (must have sent hello before)
+	index := FindCachedPeerByAddr(addr_sender)
+	if index == -1 {
+		if debug_handler {
+			fmt.Println("[HandlePublicKeyReply] Peer not in cache. Message will be ignored")
+		}
+		return
+	}
+
+	len := getLength(message)
+	data := message[:7+len]
+	key := message[7 : 7+len]
+	signature := message[7+len:]
+
+	if len != 0 && !bytes.Equal(key, cache_peers.list[index].PublicKey[:]) {
+		fmt.Printf("[HandlePublicKeyReply] Key given is different from what is stored in cache : %x != %x\n", key, cache_peers.list[index].PublicKey[:])
+		return
+	}
+
+	if VerifySignature(cache_peers.list[index].PublicKey[:], data, signature) {
+		fmt.Printf("PublicKey of %s is : %x\n", cache_peers.list[index].Name, key)
+	} else {
+		if debug_handler {
+			fmt.Println("[HandlePublicKeyReply] Invalid signature with known peer")
+		}
+		return
+	}
+}
+
+func HandleRootReply(message []byte, addr_sender net.Addr) {
+	if debug_handler {
+		fmt.Println("[HandleRootReply] Triggered")
+	}
+	defer unblock(getID(message))
+
+	// Make sure I known the peer (must have sent hello before)
+	index := FindCachedPeerByAddr(addr_sender)
+	if index == -1 {
+		if debug_handler {
+			fmt.Println("[HandleRootReply] Peer not in cache. Message will be ignored")
+		}
+		return
+	}
+
+	len := getLength(message)
+	data := message[:7+len]
+	root := message[7 : 7+len]
+	signature := message[7+len:]
+
+	if VerifySignature(cache_peers.list[index].PublicKey[:], data, signature) {
+		fmt.Printf("Root of %s is : %x\n", cache_peers.list[index].Name, root)
+	} else {
+		if debug_handler {
+			fmt.Println("[HandleRootReply] Invalid signature with known peer")
+		}
+		return
 	}
 }
 
