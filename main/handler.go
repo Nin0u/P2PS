@@ -166,10 +166,14 @@ func HandleErrorReply(message []byte) {
 }
 
 func unblock(message_id int32) {
-	wg, b := GetSyncMap(message_id)
+	sync_map.mutex.Lock()
+	wg, b := sync_map.content[message_id]
 	if b {
 		wg.Done()
+		delete(sync_map.content, message_id)
 	}
+	sync_map.mutex.Unlock()
+
 }
 
 func HandlePublicKeyReply(message []byte, nb_byte int, addr_sender net.Addr) {

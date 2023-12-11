@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 )
 
 type ExportNode struct {
@@ -17,7 +18,13 @@ type ExportNode struct {
 
 var rootExport *ExportNode = nil
 
-// Map containing Tree's Node. It serves to access efficately to the data ! Needed for handleGetDatum
+// Map containing Tree's Node. It serves to access efficatively to the data ! Needed for handleGetDatum
+
+type MapExport struct {
+	Content map[[32]byte]*ExportNode
+	Mutex   sync.Mutex
+}
+
 var map_export map[[32]byte]*ExportNode = map[[32]byte]*ExportNode{}
 
 func buildExportNode(path string, hash [32]byte, num int64, type_file byte) *ExportNode {
@@ -135,6 +142,7 @@ func export(path string) {
 	}
 
 	//TODO: Vider la map !
+	//TODO: Add mutex
 	if info.IsDir() {
 		rootExport = exportDirectory(path)
 	} else {
