@@ -204,9 +204,9 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 
 	case "nat":
 		handleNatTraversal(conn, client, words)
+
 	case "data":
 		handleGetData(client, conn, words)
-
 	case "data_dl":
 		handleGetDataDL(client, conn, words)
 

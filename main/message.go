@@ -321,13 +321,6 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 		fmt.Println("[sendGetDatum] Called")
 	}
 
-	_, err := sendHello(conn, addr, username)
-	if err != nil {
-		if debug_message {
-			fmt.Println("[sendGetDatum] error while sending hello :", err)
-		}
-	}
-
 	message := Message{
 		Id:      id.get(),
 		Dest:    addr,
