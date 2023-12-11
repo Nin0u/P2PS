@@ -14,5 +14,8 @@ func (id *Id) incr() {
 }
 
 func (id *Id) get() int32 {
-	return id.current_id
+	id.mutex.Lock()
+	ret := id.current_id
+	id.mutex.Unlock()
+	return ret
 }

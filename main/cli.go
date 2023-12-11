@@ -163,7 +163,7 @@ func start(client *http.Client, conn net.PacketConn) {
 	//We can do it with the function at the bottom of this file :
 	//			we launch sendHello and wait during some time and if we get to the timeout, we test another one
 	//Here I suppose that the first addr works but it's not really sure
-	addr, err := net.ResolveUDPAddr("udp", addr_list[1])
+	addr, err := net.ResolveUDPAddr("udp", addr_list[0])
 	if err != nil {
 		fmt.Println("Error resolve addr", err.Error())
 		return
