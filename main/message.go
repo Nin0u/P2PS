@@ -108,6 +108,9 @@ func reemit(conn net.PacketConn, addr net.Addr, message *Message) (int, error) {
 	for i := 0; i < 3; i++ {
 		_, err := conn.WriteTo(message.build(), addr)
 		if err != nil {
+			if debug_message {
+				fmt.Println("[reemit] Erreur :", err)
+			}
 			return i, err
 		}
 
@@ -115,6 +118,9 @@ func reemit(conn net.PacketConn, addr net.Addr, message *Message) (int, error) {
 		has_timedout := waitTimeout(&wg, message.Timeout)
 
 		if has_timedout {
+			if debug_message {
+				fmt.Println("[reemit] Timeout !")
+			}
 			message.Timeout *= 2
 		} else {
 			return i, nil

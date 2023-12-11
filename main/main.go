@@ -52,6 +52,10 @@ func Recv(client *http.Client, conn net.PacketConn) {
 			continue
 		}
 
+		if debug {
+			fmt.Printf("[Recv] Received message : %x\n", message[:nb_byte])
+		}
+
 		t := GetType(message)
 
 		// Treat Hello separately because it handles handshake between peers

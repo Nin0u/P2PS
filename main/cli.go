@@ -20,9 +20,9 @@ type Command struct {
 }
 
 var rest_commands = []Command{
-	{CommandName: "list", Argument: "", HelpText: "list all peers"},
-	{CommandName: "addr", Argument: "<peername>", HelpText: "list addresses of the peer"},
-	{CommandName: "get_key", Argument: "<peername>", HelpText: "get the peer's public key"},
+	{CommandName: "list    ", Argument: "          ", HelpText: "list all peers"},
+	{CommandName: "addr    ", Argument: "<peername>", HelpText: "list addresses of the peer"},
+	{CommandName: "get_key ", Argument: "<peername>", HelpText: "get the peer's public key"},
 	{CommandName: "get_root", Argument: "<peername>", HelpText: "get the peer's root"},
 }
 
@@ -288,7 +288,7 @@ func cli(client *http.Client, conn net.PacketConn) {
 		case keyboard.KeyCtrlN:
 			fmt.Println("CTRL + N")
 			//! Pour Test on changera username !
-			addrs, err := GetAddresses(client, username)
+			addrs, err := GetAddresses(client, "Yoyo")
 			if err != nil {
 				fmt.Println("Error GETADDR CTRL + N :", err.Error())
 				continue
