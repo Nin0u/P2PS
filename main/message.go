@@ -119,7 +119,7 @@ func reemit(conn net.PacketConn, addr net.Addr, message *Message) (int, error) {
 
 		if has_timedout {
 			if debug_message {
-				fmt.Println("[reemit] Timeout !")
+				fmt.Println("[reemit] Timeout on id :", message.Id)
 			}
 			message.Timeout *= 2
 		} else {
@@ -166,6 +166,22 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 	}
 
 	return reemit(conn, addr, &message)
+	// if err != nil {
+	// 	if n == -1 {
+	// 		if debug_message {
+	// 			fmt.Println("[sendHello] reemit timeout proceed to NatTraversal")
+	// 			// TODO : NAT Traversal
+	// 		}
+	// 	} else {
+	// 		if debug_message {
+	// 			fmt.Println("[sendHello] Error :", err)
+	// 		}
+	// 	}
+	// }
+
+	// if debug_message {
+	// 	fmt.Printf("[sendHello] message sent after %d tries\n", n)
+	// }
 }
 
 func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (int32, error) {
