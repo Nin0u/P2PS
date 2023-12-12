@@ -140,6 +140,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	fmt.Println(conn.LocalAddr().String())
+
 	go Recv(client, conn)
 	cli(client, conn)
 }

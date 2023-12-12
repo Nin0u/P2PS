@@ -513,9 +513,9 @@ func handleGetDataDL(client *http.Client, conn net.PacketConn, words []string) {
 				return
 			}
 		}
-		download(conn, p, start_hash, strings.Join(path, "/"))
+		download_multi(conn, p, start_hash, strings.Join(path, "/"))
 	} else {
-		download(conn, p, [32]byte(hash), p.Name)
+		download_multi(conn, p, [32]byte(hash), p.Name)
 	}
 
 	fmt.Println("END !")

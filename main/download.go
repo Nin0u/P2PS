@@ -43,10 +43,11 @@ type RequestDatum struct {
 	Path  string
 	Hash  [32]byte
 	Count int64
+	Info  int16 // 0 -> ok, -1 -> Error, 1 -> Chunk dl need to write
 }
 
 func buildRequestDatum(path string, hash [32]byte, count int64) RequestDatum {
-	return RequestDatum{Path: path, Hash: hash, Count: count}
+	return RequestDatum{Path: path, Hash: hash, Count: count, Info: 0}
 }
 
 func RecupDatum(conn net.PacketConn, req *RequestDatum, p *Peer) []byte {
@@ -119,7 +120,8 @@ func explore(conn net.PacketConn, p *Peer) {
 				path := req.Path + "/" + name
 				fmt.Println(path)
 
-				reqDatum = append(reqDatum, RequestDatum{Path: path, Hash: [32]byte(hash), Count: 0})
+				reqDatum = append(reqDatum, buildRequestDatum(path, [32]byte(hash), 0))
+
 			}
 
 		} else {
@@ -160,7 +162,8 @@ func download(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path stri
 				path := req.Path + "/" + name
 				fmt.Println(path)
 
-				reqDatum = append(reqDatum, RequestDatum{Path: path, Hash: [32]byte(hash), Count: 0})
+				reqDatum = append(reqDatum, buildRequestDatum(path, [32]byte(hash), 0))
+
 			}
 
 		} else if typeFile == TREE {
@@ -168,7 +171,7 @@ func download(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path stri
 
 			for i := len(value) - 32; i >= 0; i -= 32 {
 				hash := value[i : i+32]
-				reqDatum = append(reqDatum, RequestDatum{Path: req.Path, Hash: [32]byte(hash), Count: req.Count})
+				reqDatum = append(reqDatum, buildRequestDatum(req.Path, [32]byte(hash), req.Count))
 			}
 
 		} else if typeFile == CHUNK {
@@ -192,5 +195,132 @@ func download(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path stri
 			fmt.Println("Error : unknown file type !")
 			return
 		}
+	}
+}
+
+func download_multi_aux(conn net.PacketConn, req *RequestDatum, p *Peer) []RequestDatum {
+	buff := make([]RequestDatum, 0)
+
+	//Recup the Datum
+	value := RecupDatum(conn, req, p)
+	//Error
+	if value == nil {
+		buff = append(buff, RequestDatum{Info: -1})
+		return buff
+	}
+
+	typeFile := value[0]
+	value = value[1:]
+
+	if typeFile == DIRECTORY {
+		fmt.Println("[Download] Directory received !")
+		err := os.MkdirAll(req.Path, os.ModePerm)
+		if err != nil {
+			fmt.Println("Error mkdir all :", err.Error())
+		}
+		for i := len(value) - 64; i >= 0; i -= 64 {
+			name := string(bytes.TrimRight(value[i:i+32], string(byte(0))))
+			hash := value[i+32 : i+64]
+			path := req.Path + "/" + name
+			fmt.Println(path)
+
+			buff = append(buff, RequestDatum{Path: path, Hash: [32]byte(hash), Count: 0, Info: 0})
+			fmt.Println("mybuff =", buff)
+		}
+
+	} else if typeFile == TREE {
+		fmt.Println("[Download] BigFile received !")
+
+		for i := len(value) - 32; i >= 0; i -= 32 {
+			hash := value[i : i+32]
+			buff = append(buff, RequestDatum{Path: req.Path, Hash: [32]byte(hash), Count: req.Count, Info: 0})
+		}
+
+	} else if typeFile == CHUNK {
+		req.Info = 1
+		buff = append(buff, *req)
+	} else {
+		fmt.Println("Error : unknown file type !")
+		buff = append(buff, RequestDatum{Info: -1})
+		return buff
+	}
+	return buff
+}
+
+func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path string) {
+	max_request := 32
+
+	reqDatum := make([]RequestDatum, 0)
+	reqDatum = append(reqDatum, buildRequestDatum(start_path, first_hash, 0))
+
+	for len(reqDatum) != 0 {
+
+		//Pop the 3 last elements
+		nb := min(max_request, len(reqDatum))
+		reqs := reqDatum[len(reqDatum)-nb:]
+		reqDatum = reqDatum[:len(reqDatum)-nb]
+
+		//Demand the next nodes by multithreading
+		var buffs = [32][]RequestDatum{}
+		var wg sync.WaitGroup
+		wg.Add(nb)
+		for i := 0; i < nb; i++ {
+
+			req := &reqs[i]
+
+			go func(i int) {
+				defer wg.Done()
+				buffs[i] = download_multi_aux(conn, req, p)
+			}(i)
+		}
+		wg.Wait()
+
+		//Add the result to the stack
+		for i := 0; i < nb; i++ {
+			fmt.Println("buff[i] =", buffs[i])
+			if len(buffs[i]) > 0 && buffs[i][0].Info == -1 {
+				fmt.Println("[DownloadMulti] Error no value")
+				return
+			}
+			reqDatum = append(reqDatum, buffs[i]...)
+		}
+
+		fmt.Println(reqDatum)
+		//time.Sleep(time.Second * 2)
+
+		for {
+			if len(reqDatum) == 0 {
+				break
+			}
+
+			//Si le Chunk a été recup
+			if reqDatum[len(reqDatum)-1].Info == 1 {
+				//Pop and write the element
+				req := reqDatum[len(reqDatum)-1]
+				reqDatum = reqDatum[:len(reqDatum)-1]
+
+				value := RecupDatum(conn, &req, p)
+				value = value[1:]
+
+				file, err := os.OpenFile(req.Path, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+				if err != nil {
+					fmt.Println("Error open file :", err.Error())
+					return
+				}
+				_, err = file.WriteAt(value, req.Count)
+				if err != nil {
+					fmt.Println("Error writeAt :", err.Error())
+					return
+				}
+
+				if len(reqDatum) > 0 && reqDatum[len(reqDatum)-1].Path == req.Path {
+					reqDatum[len(reqDatum)-1].Count = req.Count + int64(len(value))
+				}
+
+			} else {
+				break
+			}
+		}
+
 	}
 }
