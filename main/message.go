@@ -424,7 +424,7 @@ func sendNatRequest(conn net.PacketConn, addr net.Addr) (int, error) {
 
 	index := FindCachedPeerByName(server_name_peer)
 	cache_peers.mutex.Lock()
-	message.Dest = cache_peers.list[index].Addr[0]
+	message.Dest = cache_peers.list[index].Addr[1]
 	cache_peers.mutex.Unlock()
 
 	id.incr()

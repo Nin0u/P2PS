@@ -35,19 +35,7 @@ func BuildPeer(c *http.Client, message []byte, addr_sender net.Addr, key []byte)
 	}
 
 	p.Addr = make([]net.Addr, 0)
-
-	addresses, err := GetAddresses(c, name_sender)
-	if err != nil {
-		fmt.Println("[BuildPeer]", err)
-	}
-
-	for i := 0; i < len(addresses); i++ {
-		ad, err := net.ResolveUDPAddr("udp", addresses[i])
-		if err != nil {
-			fmt.Println("[BuildPeer] Error resolve addr", err.Error())
-		}
-		p.Addr = append(p.Addr, ad)
-	}
+	p.Addr = append(p.Addr, addr_sender)
 
 	if debug_peer {
 		fmt.Printf("[BuildPeer] Building a new peer with name %s\n", name_sender)
