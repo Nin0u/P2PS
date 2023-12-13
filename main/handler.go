@@ -169,6 +169,7 @@ func unblock(message_id int32) {
 	sync_map.mutex.Lock()
 	wg, b := sync_map.content[message_id]
 	if b {
+		fmt.Println("DOING SHIT", message_id)
 		wg.Done()
 		delete(sync_map.content, message_id)
 	}
@@ -296,9 +297,9 @@ func HandleHelloReply(client *http.Client, message []byte, nb_bytes int, addr_se
 func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.PacketConn) {
 	defer unblock(getID(message))
 
-	if debug_handler {
-		fmt.Println("[HandleDatum] Datum Received !")
-	}
+	//if debug_handler {
+	fmt.Println("[HandleDatum] Datum Received id :", getID(message))
+	//}
 
 	hash := make([]byte, 32)
 	value := make([]byte, getLength(message)-32)
@@ -308,10 +309,10 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 	copy(value, message[7+32:7+getLength(message)])
 	check := sha256.Sum256(value)
 	if check != [32]byte(hash) {
-		if debug_handler {
-			fmt.Printf("[HandleDatum] Invalid checksum : Given Hash = %x, Expected Hash = %x\n", hash, check)
-			fmt.Println("[HandleDatum]", hash, value)
-		}
+		//if debug_handler {
+		fmt.Printf("[HandleDatum] Invalid checksum : Given Hash = %x, Expected Hash = %x\n", hash, check)
+		fmt.Println("[HandleDatum]", hash, value)
+		//}
 		return
 	}
 
@@ -329,9 +330,9 @@ func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 }
 
 func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
-	if debug_handler {
-		fmt.Println("[HandleGetDatum] GetDatum Received !")
-	}
+	//if debug_handler {
+	fmt.Println("[HandleGetDatum] GetDatum Received id :", getID(message))
+	//}
 
 	len := getLength(message)
 	if len != 32 {

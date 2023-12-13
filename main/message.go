@@ -85,11 +85,14 @@ func getLength(m []byte) uint16 {
 // ! Code found on https://stackoverflow.com/questions/32840687/timeout-for-waitgroup-wait/32840688#32840688
 // waitTimeout waits for the waitgroup for the specified max timeout.
 // Returns true if waiting timed out.
-func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+func waitTimeout(id int32, timeout time.Duration) bool {
 	c := make(chan struct{})
 	go func() {
 		defer close(c)
-		wg.Wait()
+		wg, ok := GetSyncMap(id)
+		if ok {
+			wg.Wait()
+		}
 	}()
 	select {
 	case <-c:
@@ -100,7 +103,6 @@ func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 }
 
 func reemit(conn net.PacketConn, addr net.Addr, message *Message, nb_timeout int) (int, error) {
-	defer DeleteSyncMap(message.Id)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	SetSyncMap(message.Id, &wg)
@@ -115,14 +117,20 @@ func reemit(conn net.PacketConn, addr net.Addr, message *Message, nb_timeout int
 		}
 
 		// Timeout peut etre pour éviter de bloquer indéfiniment
-		has_timedout := waitTimeout(&wg, message.Timeout)
+		has_timedout := waitTimeout(message.Id, message.Timeout)
+
+		// if _, ok := GetSyncMap(message.Id); !ok {
+		// 	fmt.Println("AWKWARD !")
+		// 	return i, nil
+		// }
 
 		if has_timedout {
-			if debug_message {
-				fmt.Println("[reemit] Timeout on id :", message.Id)
-			}
+			//if debug_message {
+			fmt.Println("[reemit] Timeout on id :", message.Id)
+			//}
 			message.Timeout *= 2
 		} else {
+			fmt.Println("[reemit] RECEIVED on id :", message.Id)
 			return i, nil
 		}
 	}
@@ -165,7 +173,7 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 		fmt.Printf("[sendHello] Hello : %x\n", message.build())
 	}
 
-	n, err := reemit(conn, addr, &message, 5)
+	n, err := reemit(conn, addr, &message, 3)
 	if err != nil {
 		if n == -1 {
 			if debug_message {
@@ -331,7 +339,7 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 		Type:    GetDatum,
 		Length:  32,
 		Body:    make([]byte, 32),
-		Timeout: time.Second * 1,
+		Timeout: time.Second * 1, //time.Millisecond * 10,
 	}
 	id.incr()
 	copy(message.Body[:], hash[:])

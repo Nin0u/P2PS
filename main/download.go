@@ -277,7 +277,7 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 
 		//Add the result to the stack
 		for i := 0; i < nb; i++ {
-			fmt.Println("buff[i] =", buffs[i])
+			//fmt.Println("buff[i] =", buffs[i])
 			if len(buffs[i]) > 0 && buffs[i][0].Info == -1 {
 				fmt.Println("[DownloadMulti] Error no value")
 				return
@@ -285,7 +285,7 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 			reqDatum = append(reqDatum, buffs[i]...)
 		}
 
-		fmt.Println(reqDatum)
+		//fmt.Println(reqDatum)
 		//time.Sleep(time.Second * 2)
 
 		for {
