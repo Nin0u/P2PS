@@ -7,15 +7,10 @@ type Id struct {
 	current_id int32
 }
 
-func (id *Id) incr() {
-	id.mutex.Lock()
-	id.current_id++
-	id.mutex.Unlock()
-}
-
 func (id *Id) get() int32 {
 	id.mutex.Lock()
 	ret := id.current_id
+	id.current_id++
 	id.mutex.Unlock()
 	return ret
 }

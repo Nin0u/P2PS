@@ -85,14 +85,11 @@ func getLength(m []byte) uint16 {
 // ! Code found on https://stackoverflow.com/questions/32840687/timeout-for-waitgroup-wait/32840688#32840688
 // waitTimeout waits for the waitgroup for the specified max timeout.
 // Returns true if waiting timed out.
-func waitTimeout(id int32, timeout time.Duration) bool {
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	c := make(chan struct{})
 	go func() {
 		defer close(c)
-		wg, ok := GetSyncMap(id)
-		if ok {
-			wg.Wait()
-		}
+		wg.Wait()
 	}()
 	select {
 	case <-c:
@@ -103,10 +100,10 @@ func waitTimeout(id int32, timeout time.Duration) bool {
 }
 
 func reemit(conn net.PacketConn, addr net.Addr, message *Message, nb_timeout int) (int, error) {
-	var wg sync.WaitGroup
+	var wg = &sync.WaitGroup{}
 	wg.Add(1)
-	SetSyncMap(message.Id, &wg)
-	// The user will wait 7seconds max before aborting
+	SetSyncMap(message.Id, wg)
+
 	for i := 0; i < nb_timeout; i++ {
 		_, err := conn.WriteTo(message.build(), addr)
 		if err != nil {
@@ -117,20 +114,14 @@ func reemit(conn net.PacketConn, addr net.Addr, message *Message, nb_timeout int
 		}
 
 		// Timeout peut etre pour éviter de bloquer indéfiniment
-		has_timedout := waitTimeout(message.Id, message.Timeout)
-
-		// if _, ok := GetSyncMap(message.Id); !ok {
-		// 	fmt.Println("AWKWARD !")
-		// 	return i, nil
-		// }
+		has_timedout := waitTimeout(wg, message.Timeout)
 
 		if has_timedout {
-			//if debug_message {
-			fmt.Println("[reemit] Timeout on id :", message.Id)
-			//}
+			if debug_message {
+				fmt.Printf("[reemit] Timeout on id : %d %p\n", message.Id, wg)
+			}
 			message.Timeout *= 2
 		} else {
-			fmt.Println("[reemit] RECEIVED on id :", message.Id)
 			return i, nil
 		}
 	}
@@ -165,7 +156,6 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 		Timeout: time.Second,
 	}
 
-	id.incr()
 	copy(message.Body[4:], name)
 	sign := computeSignature(message.build())
 	message.Signature = sign
@@ -234,7 +224,6 @@ func sendPublicKey(conn net.PacketConn, addr net.Addr) (int, error) {
 		Timeout: time.Second,
 	}
 
-	id.incr()
 	publicKey.X.FillBytes(message.Body[:32])
 	publicKey.Y.FillBytes(message.Body[32:])
 	sign := computeSignature(message.build())
@@ -285,7 +274,6 @@ func sendRoot(conn net.PacketConn, addr net.Addr) (int, error) {
 		Body:    make([]byte, 32),
 		Timeout: time.Second,
 	}
-	id.incr()
 
 	hash := sha256.Sum256([]byte(""))
 	message.Body = hash[:]
@@ -329,10 +317,6 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) 
 }
 
 func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error) {
-	if debug_message {
-		fmt.Println("[sendGetDatum] Called")
-	}
-
 	message := Message{
 		Id:      id.get(),
 		Dest:    addr,
@@ -341,7 +325,11 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 		Body:    make([]byte, 32),
 		Timeout: time.Second * 1, //time.Millisecond * 10,
 	}
-	id.incr()
+
+	if debug_message {
+		fmt.Printf("[sendGetDatum] id = %d hash = %x\n", message.Id, hash)
+	}
+
 	copy(message.Body[:], hash[:])
 
 	if debug {
@@ -434,8 +422,6 @@ func sendNatRequest(conn net.PacketConn, addr net.Addr) (int, error) {
 	cache_peers.mutex.Lock()
 	message.Dest = cache_peers.list[index].Addr[1]
 	cache_peers.mutex.Unlock()
-
-	id.incr()
 
 	ip, err := netip.ParseAddrPort(addr.String())
 	if err != nil {

@@ -169,7 +169,6 @@ func unblock(message_id int32) {
 	sync_map.mutex.Lock()
 	wg, b := sync_map.content[message_id]
 	if b {
-		fmt.Println("DOING SHIT", message_id)
 		wg.Done()
 		delete(sync_map.content, message_id)
 	}

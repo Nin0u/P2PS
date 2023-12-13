@@ -55,7 +55,7 @@ func RecupDatum(conn net.PacketConn, req *RequestDatum, p *Peer) []byte {
 	value, ok := GetDatumCache(req.Hash)
 
 	for j := 0; !ok && j < 5; j++ {
-		fmt.Println("Send GET DATUM : " + req.Path)
+		//fmt.Println("Send GET DATUM : " + req.Path)
 		// TODO : on choisit quelle addr du pair ??? J'ai mis [0] pour l'instant
 		_, err := sendGetDatum(conn, p.Addr[0], req.Hash)
 
@@ -248,7 +248,7 @@ func download_multi_aux(conn net.PacketConn, req *RequestDatum, p *Peer) []Reque
 }
 
 func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path string) {
-	max_request := 32
+	max_request := 512
 
 	reqDatum := make([]RequestDatum, 0)
 	reqDatum = append(reqDatum, buildRequestDatum(start_path, first_hash, 0))
