@@ -89,7 +89,7 @@ func Recv(client *http.Client, conn net.PacketConn) {
 
 			case NatTraversal:
 				message_bis := make([]byte, nb_byte)
-				copy(message_bis, message_bis)
+				copy(message_bis, message)
 				go HandleNatTraversal(conn, message_bis, nb_byte, addr_sender)
 
 			case ErrorReply:
