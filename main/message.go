@@ -165,7 +165,7 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 		fmt.Printf("[sendHello] Hello : %x\n", message.build())
 	}
 
-	n, err := reemit(conn, addr, &message, 3)
+	n, err := reemit(conn, addr, &message, 5)
 	if err != nil {
 		if n == -1 {
 			if debug_message {

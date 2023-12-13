@@ -88,7 +88,9 @@ func Recv(client *http.Client, conn net.PacketConn) {
 				HandleGetDatum(conn, message, nb_byte, addr_sender)
 
 			case NatTraversal:
-				HandleNatTraversal(conn, message, nb_byte, addr_sender)
+				message_bis := make([]byte, nb_byte)
+				copy(message_bis, message_bis)
+				go HandleNatTraversal(conn, message_bis, nb_byte, addr_sender)
 
 			case ErrorReply:
 				HandleErrorReply(message)
