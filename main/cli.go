@@ -214,6 +214,14 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 	case "help":
 		print_help()
 
+	// Debug commands
+	case "cp":
+		cache_peers.mutex.Lock()
+		for i := 0; i < len(cache_peers.list); i++ {
+			fmt.Println("cache_peers.list[", i, "] =", cache_peers.list[i])
+		}
+		cache_peers.mutex.Unlock()
+
 	default:
 		fmt.Println("Unknown command ;-;")
 

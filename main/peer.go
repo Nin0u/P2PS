@@ -12,7 +12,7 @@ import (
 type Peer struct {
 	Name            string
 	Addr            []net.Addr
-	PublicKey       [64]uint8
+	PublicKey       [64]byte
 	LastMessageTime time.Time
 	Root            *Node
 }
@@ -26,10 +26,14 @@ var cache_peers Cache = Cache{list: make([]Peer, 0)}
 var timeout_cache, _ = time.ParseDuration("180s")
 var debug_peer bool = false
 
-func BuildPeer(c *http.Client, message []byte, addr_sender net.Addr) Peer {
+func BuildPeer(c *http.Client, message []byte, addr_sender net.Addr, key []byte) Peer {
 	len_message := getLength(message)
 	name_sender := string(message[11 : 7+len_message])
 	p := Peer{Name: name_sender, LastMessageTime: time.Now(), Root: nil}
+	if key != nil {
+		p.PublicKey = [64]byte(key)
+	}
+
 	p.Addr = make([]net.Addr, 0)
 
 	addresses, err := GetAddresses(c, name_sender)

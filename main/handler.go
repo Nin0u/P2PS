@@ -60,7 +60,7 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 		}
 
 		if VerifySignature(key, data, signature) {
-			AddCachedPeer(BuildPeer(client, message, addr_sender))
+			AddCachedPeer(BuildPeer(client, message, addr_sender, key))
 		} else {
 			if debug_handler {
 				fmt.Println("[HandleHello] Invalid signature with fetched key")
@@ -269,7 +269,7 @@ func HandleHelloReply(client *http.Client, message []byte, nb_bytes int, addr_se
 
 		//If signature is verified add the peer to the cache
 		if VerifySignature(key, data, signature) {
-			AddCachedPeer(BuildPeer(client, message, addr_sender))
+			AddCachedPeer(BuildPeer(client, message, addr_sender, key))
 		} else {
 			if debug_handler {
 				fmt.Println("[HandleHelloReply] Invalid signature with fetched key")
