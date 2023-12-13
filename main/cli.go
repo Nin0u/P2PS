@@ -48,10 +48,6 @@ var input_cursor int = 0
 
 var server_name_peer string = "jch.irif.fr"
 
-func autocomplete(s *string) {
-	// TODO
-}
-
 func AddCommandHistory(content string) {
 	command_history = append(command_history, content)
 	if len(command_history) >= history_max_size {
@@ -139,14 +135,15 @@ func print_help() {
 	fmt.Println("Press escape to exit the program.")
 }
 
-func ConnKeeper(client *http.Client, conn net.PacketConn, addr net.Addr) {
+func ConnKeeper(client *http.Client, conn net.PacketConn, addr []net.Addr) {
 	sleep_time, _ := time.ParseDuration("30s")
 	for {
 		time.Sleep(sleep_time)
-		_, err := sendHello(conn, addr, username)
-		if err != nil {
-			fmt.Println("[ConnKeep] Error while sending hello :", err.Error())
-			return
+		for i := 0; i < len(addr); i++ {
+			_, err := sendHello(conn, addr[i], username)
+			if err != nil {
+				fmt.Println("[ConnKeeper] Error while sending hello to ", addr[i], ":", err.Error())
+			}
 		}
 	}
 }
@@ -155,27 +152,31 @@ func start(client *http.Client, conn net.PacketConn) {
 	fmt.Println("Connecting to server :", server)
 	addr_list, err := GetAddresses(client, server_name_peer)
 	if err != nil {
-		fmt.Println("Error getAddr on server:", err.Error())
+		fmt.Println("Error getAddr on server :", err.Error())
 		return
 	}
 
-	//TODO: Trier la liste des addr pour voir celle qui ne marche pas
-	//We can do it with the function at the bottom of this file :
-	//			we launch sendHello and wait during some time and if we get to the timeout, we test another one
-	//Here I suppose that the first addr works but it's not really sure
-	addr, err := net.ResolveUDPAddr("udp", addr_list[0])
-	if err != nil {
-		fmt.Println("Error resolve addr", err.Error())
-		return
+	conkeeper_addrs := make([]net.Addr, 0)
+
+	// Check if all the addresses work by sending hello to each of them
+	for i := 0; i < len(addr_list); i++ {
+		addr, err := net.ResolveUDPAddr("udp", addr_list[i])
+		if err != nil {
+			fmt.Println("Error resolve addr", err.Error())
+			return
+		}
+
+		_, err = sendHello(conn, addr, username)
+		if err != nil {
+			fmt.Println("Error send hello :", err.Error())
+			return
+		}
+
+		conkeeper_addrs = append(conkeeper_addrs, addr)
+
 	}
 
-	_, err = sendHello(conn, addr, username)
-	if err != nil {
-		fmt.Println("Error send hello :", err.Error())
-		return
-	}
-
-	go ConnKeeper(client, conn, addr)
+	go ConnKeeper(client, conn, conkeeper_addrs)
 }
 
 func execCommand(client *http.Client, conn net.PacketConn, content string) {
@@ -253,9 +254,6 @@ func cli(client *http.Client, conn net.PacketConn) {
 			moveInputCursor(true, &s)
 		case keyboard.KeyArrowRight:
 			moveInputCursor(false, &s)
-
-		case keyboard.KeyTab:
-			autocomplete(&s)
 
 		case keyboard.KeyEsc:
 			fmt.Println("\n[Exit]")

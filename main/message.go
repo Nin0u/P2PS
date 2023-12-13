@@ -99,13 +99,13 @@ func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	}
 }
 
-func reemit(conn net.PacketConn, addr net.Addr, message *Message) (int, error) {
+func reemit(conn net.PacketConn, addr net.Addr, message *Message, nb_timeout int) (int, error) {
 	defer DeleteSyncMap(message.Id)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	SetSyncMap(message.Id, &wg)
 	// The user will wait 7seconds max before aborting
-	for i := 0; i < 3; i++ {
+	for i := 0; i < nb_timeout; i++ {
 		_, err := conn.WriteTo(message.build(), addr)
 		if err != nil {
 			if debug_message {
@@ -165,7 +165,7 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 		fmt.Printf("[sendHello] Hello : %x\n", message.build())
 	}
 
-	return reemit(conn, addr, &message)
+	return reemit(conn, addr, &message, 3)
 	// if err != nil {
 	// 	if n == -1 {
 	// 		if debug_message {
@@ -232,7 +232,7 @@ func sendPublicKey(conn net.PacketConn, addr net.Addr) (int, error) {
 		fmt.Printf("[sendPublicKey] PublicKey : %x\n", message.build())
 	}
 
-	return reemit(conn, addr, &message)
+	return reemit(conn, addr, &message, 3)
 }
 
 func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {
@@ -283,7 +283,7 @@ func sendRoot(conn net.PacketConn, addr net.Addr) (int, error) {
 		fmt.Printf("[sendRoot] Root : %x\n", message.build())
 	}
 
-	return reemit(conn, addr, &message)
+	return reemit(conn, addr, &message, 3)
 }
 
 func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {
@@ -336,7 +336,7 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 		fmt.Printf("[sendGetDatum] GetDatum : %x\n", message.build())
 	}
 
-	return reemit(conn, addr, &message)
+	return reemit(conn, addr, &message, 5)
 }
 
 func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (int32, error) {

@@ -61,7 +61,7 @@ func AddAddrToPeer(p *Peer, addr net.Addr) {
 	p.Addr = append(p.Addr, addr)
 }
 
-func Add_cached_peer(p Peer) {
+func AddCachedPeer(p Peer) {
 	if debug_peer {
 		cache_peers.mutex.Lock()
 		fmt.Println("[AddCachedPeer] Old Cached Peers ", cache_peers.list)
