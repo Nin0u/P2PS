@@ -140,9 +140,16 @@ func ConnKeeper(client *http.Client, conn net.PacketConn, addr []net.Addr) {
 	for {
 		time.Sleep(sleep_time)
 		for i := 0; i < len(addr); i++ {
-			_, err := sendHello(conn, addr[i], username)
+			code, err := sendHello(conn, addr[i], username)
 			if err != nil {
 				fmt.Println("[ConnKeeper] Error while sending hello to ", addr[i], ":", err.Error())
+				if code != -1 {
+					addr = append(addr[:i], addr[i+1:]...)
+
+					if len(addr) == 0 {
+						fmt.Println("ERROR : No more addresses for the server. Closing ConnKeeper.")
+					}
+				}
 			}
 		}
 	}
@@ -169,11 +176,14 @@ func start(client *http.Client, conn net.PacketConn) {
 		_, err = sendHello(conn, addr, username)
 		if err != nil {
 			fmt.Println("Error send hello :", err.Error())
-			return
 		}
 
 		conkeeper_addrs = append(conkeeper_addrs, addr)
+	}
 
+	if len(conkeeper_addrs) == 0 {
+		fmt.Println("ERROR : No addresses for the server.")
+		return
 	}
 
 	go ConnKeeper(client, conn, conkeeper_addrs)
@@ -215,6 +225,7 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 		print_help()
 
 	// Debug commands
+	// TODO : à retirer
 	case "cp":
 		cache_peers.mutex.Lock()
 		for i := 0; i < len(cache_peers.list); i++ {
