@@ -165,23 +165,27 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 		fmt.Printf("[sendHello] Hello : %x\n", message.build())
 	}
 
-	return reemit(conn, addr, &message, 3)
-	// if err != nil {
-	// 	if n == -1 {
-	// 		if debug_message {
-	// 			fmt.Println("[sendHello] reemit timeout proceed to NatTraversal")
-	// 			// TODO : NAT Traversal
-	// 		}
-	// 	} else {
-	// 		if debug_message {
-	// 			fmt.Println("[sendHello] Error :", err)
-	// 		}
-	// 	}
-	// }
+	n, err := reemit(conn, addr, &message, 3)
+	if err != nil {
+		if n == -1 {
+			if debug_message {
+				fmt.Println("[sendHello] reemit timeout proceed to NatTraversal")
+			}
 
-	// if debug_message {
-	// 	fmt.Printf("[sendHello] message sent after %d tries\n", n)
-	// }
+			// TODO : NAT Traversal
+			return sendNatRequest(conn, addr)
+		} else {
+			if debug_message {
+				fmt.Println("[sendHello] Error :", err)
+			}
+		}
+	}
+
+	if debug_message {
+		fmt.Printf("[sendHello] message sent after %d tries\n", n)
+	}
+
+	return 0, nil
 }
 
 func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (int32, error) {
@@ -412,7 +416,7 @@ func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node
 	return message.Id, err
 }
 
-func sendNatRequest(conn net.PacketConn, addr net.Addr) (int32, error) {
+func sendNatRequest(conn net.PacketConn, addr net.Addr) (int, error) {
 	message := Message{
 		Id:   id.get(),
 		Type: NatTraversalRequest,
@@ -440,5 +444,5 @@ func sendNatRequest(conn net.PacketConn, addr net.Addr) (int32, error) {
 	message.Length = uint16(len(message.Body))
 
 	_, err = conn.WriteTo(message.build(), message.Dest)
-	return message.Id, err
+	return int(message.Id), err
 }
