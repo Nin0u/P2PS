@@ -444,5 +444,12 @@ func sendNatRequest(conn net.PacketConn, addr net.Addr) (int, error) {
 	message.Length = uint16(len(message.Body))
 
 	_, err = conn.WriteTo(message.build(), message.Dest)
+
+	// cache_peers.mutex.Lock()
+	// message.Dest = cache_peers.list[index].Addr[1]
+	// cache_peers.mutex.Unlock()
+
+	_, err = conn.WriteTo(message.build(), message.Dest)
+
 	return int(message.Id), err
 }
