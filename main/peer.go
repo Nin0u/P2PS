@@ -23,7 +23,7 @@ type Cache struct {
 }
 
 var cache_peers Cache = Cache{list: make([]Peer, 0)}
-var timeout_cache, _ = time.ParseDuration("180s")
+var timeout_cache, _ = time.ParseDuration("180s") // Can't be const unfortunately
 var debug_peer bool = false
 
 func BuildPeer(c *http.Client, message []byte, addr_sender net.Addr, key []byte) Peer {
@@ -53,6 +53,11 @@ func AddAddrToPeer(p *Peer, addr net.Addr) {
 	p.Addr = append(p.Addr, addr)
 }
 
+/*
+Tries to find the peer's name in cache.
+If not found adds it
+If found updates its addresses and LastMessageTime
+*/
 func AddCachedPeer(p Peer) {
 	if debug_peer {
 		cache_peers.mutex.Lock()
@@ -74,7 +79,10 @@ func AddCachedPeer(p Peer) {
 			fmt.Printf("[AddCachedPeer] %s already in cache. Updating its values\n", p.Name)
 		}
 		cache_peers.mutex.Lock()
-		cache_peers.list[index] = p
+		for i := 0; i < len(p.Addr); i++ {
+			AddAddrToPeer(&cache_peers.list[index], p.Addr[i])
+		}
+		cache_peers.list[index].LastMessageTime = p.LastMessageTime
 		cache_peers.mutex.Unlock()
 	}
 
@@ -86,22 +94,10 @@ func AddCachedPeer(p Peer) {
 }
 
 func removeCachedPeer(index int) {
-	cache_peers.mutex.Lock()
 	if debug_peer {
 		fmt.Printf("Removing %s from cache\n", cache_peers.list[index].Name)
 	}
 	cache_peers.list = append(cache_peers.list[:index], cache_peers.list[index+1:]...)
-	cache_peers.mutex.Unlock()
-}
-
-func HandletimeoutCachePeers() {
-	now := time.Now()
-	for i := 0; i < len(cache_peers.list); i++ {
-		if now.Sub(cache_peers.list[i].LastMessageTime) >= timeout_cache {
-			fmt.Printf("%s reached timeout_cache : ", cache_peers.list[i].Name)
-			removeCachedPeer(i)
-		}
-	}
 }
 
 func FindCachedPeerByName(name string) int {
@@ -130,7 +126,13 @@ func FindCachedPeerByAddr(addr net.Addr) int {
 	return -1
 }
 
-func CheckHandShake(addr_sender net.Addr) error {
+func UpdatePeerLastMessageTime(index int) {
+	cache_peers.mutex.Lock()
+	cache_peers.list[index].LastMessageTime = time.Now()
+	cache_peers.mutex.Unlock()
+}
+
+func CheckHandShake(addr_sender net.Addr) (int, error) {
 	if debug_peer {
 		fmt.Println("[CheckHandShake] addr:", addr_sender)
 	}
@@ -141,8 +143,8 @@ func CheckHandShake(addr_sender net.Addr) error {
 			fmt.Println("[CheckHandShake] Handshake error")
 		}
 
-		return errors.New("handshake error : peer not cached")
+		return index, errors.New("handshake error : peer not cached")
 	}
 
-	return nil
+	return index, nil
 }

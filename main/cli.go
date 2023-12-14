@@ -8,7 +8,6 @@ import (
 	"os"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/eiannone/keyboard"
 )
@@ -41,7 +40,6 @@ const history_max_size = 5
 var history_cursor int = 0
 var command_history = make([]string, 0)
 
-// Prompt
 const prompt string = "$> "
 
 var input_cursor int = 0
@@ -135,26 +133,6 @@ func print_help() {
 	fmt.Println("Press escape to exit the program.")
 }
 
-func ConnKeeper(client *http.Client, conn net.PacketConn, addr []net.Addr) {
-	sleep_time, _ := time.ParseDuration("30s")
-	for {
-		time.Sleep(sleep_time)
-		for i := 0; i < len(addr); i++ {
-			code, err := sendHello(conn, addr[i], username)
-			if err != nil {
-				fmt.Println("[ConnKeeper] Error while sending hello to ", addr[i], ":", err.Error())
-				if code != -1 {
-					addr = append(addr[:i], addr[i+1:]...)
-
-					if len(addr) == 0 {
-						fmt.Println("ERROR : No more addresses for the server. Closing ConnKeeper.")
-					}
-				}
-			}
-		}
-	}
-}
-
 func start(client *http.Client, conn net.PacketConn) {
 	fmt.Println("Connecting to server :", server)
 	addr_list, err := GetAddresses(client, server_name_peer)
@@ -187,6 +165,7 @@ func start(client *http.Client, conn net.PacketConn) {
 	}
 
 	go ConnKeeper(client, conn, conkeeper_addrs)
+	go PeerClearer()
 }
 
 func execCommand(client *http.Client, conn net.PacketConn, content string) {
@@ -208,13 +187,6 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 
 	case "hello":
 		handleSendHello(conn, words)
-	case "public_key":
-		handlePK(conn, words)
-	case "root":
-		handleR(conn, words)
-
-	case "nat":
-		handleNatTraversal(conn, client, words)
 
 	case "data":
 		handleGetData(client, conn, words)
@@ -223,15 +195,6 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 
 	case "help":
 		print_help()
-
-	// Debug commands
-	// TODO : à retirer
-	case "cp":
-		cache_peers.mutex.Lock()
-		for i := 0; i < len(cache_peers.list); i++ {
-			fmt.Println("cache_peers.list[", i, "] =", cache_peers.list[i])
-		}
-		cache_peers.mutex.Unlock()
 
 	default:
 		fmt.Println("Unknown command ;-;")
@@ -343,28 +306,6 @@ func handleListAddr(client *http.Client, words []string) {
 	}
 }
 
-func handleNatTraversal(conn net.PacketConn, client *http.Client, words []string) {
-	if len(words) != 2 {
-		fmt.Println("Wrong number of argument !")
-		return
-	}
-
-	addrs, err := GetAddresses(client, words[1])
-	if err != nil {
-		fmt.Println("[CLI : handleNatTraversal] Error :", err.Error())
-		return
-	}
-
-	fmt.Println("CTRL + N/RESOLVE")
-	addr, err := net.ResolveUDPAddr("udp", addrs[0])
-	if err != nil {
-		fmt.Println("[CLI : handleNatTraversal] Error :", err.Error())
-		return
-	}
-	fmt.Println("CTRL + N/NATREQ")
-	sendNatRequest(conn, addr)
-}
-
 // TODO: Gerer une liste de pair au lieu de faire comme ça
 func handleSendHello(conn net.PacketConn, words []string) {
 	if len(words) != 2 {
@@ -381,42 +322,6 @@ func handleSendHello(conn net.PacketConn, words []string) {
 
 	if err != nil {
 		fmt.Println("Error send hello :", err.Error())
-		return
-	}
-}
-
-func handlePK(conn net.PacketConn, words []string) {
-	if len(words) != 2 {
-		fmt.Println("Wrong number of argument !")
-		return
-	}
-	addr, err := net.ResolveUDPAddr("udp", words[1])
-	if err != nil {
-		fmt.Println("Error resolve addr", err.Error())
-		return
-	}
-	_, err = sendPublicKey(conn, addr)
-
-	if err != nil {
-		fmt.Println("Error send public_key :", err.Error())
-		return
-	}
-}
-
-func handleR(conn net.PacketConn, words []string) {
-	if len(words) != 2 {
-		fmt.Println("Wrong number of argument !")
-		return
-	}
-	addr, err := net.ResolveUDPAddr("udp", words[1])
-	if err != nil {
-		fmt.Println("Error resolve addr", err.Error())
-		return
-	}
-	_, err = sendRoot(conn, addr)
-
-	if err != nil {
-		fmt.Println("Error send root :", err.Error())
 		return
 	}
 }

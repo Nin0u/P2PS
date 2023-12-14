@@ -146,13 +146,13 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 	if debug_message {
 		fmt.Println("[sendHello] Called")
 	}
-	len := len(name)
+	len_name := len(name)
 	message := Message{
 		Id:      id.get(),
 		Dest:    addr,
 		Type:    Hello,
-		Length:  uint16(len + 4),
-		Body:    make([]byte, len+4),
+		Length:  uint16(len_name + 4),
+		Body:    make([]byte, len_name+4),
 		Timeout: time.Second,
 	}
 
@@ -170,8 +170,7 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 				fmt.Println("[sendHello] reemit timeout proceed to NatTraversal")
 			}
 
-			// TODO : NAT Traversal
-			return sendNatRequest(conn, addr)
+			return sendAllNatRequest(conn, addr)
 		} else {
 			if debug_message {
 				fmt.Println("[sendHello] Error :", err)
@@ -211,31 +210,6 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 	return message.Id, err
 }
 
-func sendPublicKey(conn net.PacketConn, addr net.Addr) (int, error) {
-	if debug_message {
-		fmt.Println("[sendPublicKey] Called")
-	}
-	message := Message{
-		Id:      id.get(),
-		Dest:    addr,
-		Type:    PublicKey,
-		Length:  64,
-		Body:    make([]byte, 64),
-		Timeout: time.Second,
-	}
-
-	publicKey.X.FillBytes(message.Body[:32])
-	publicKey.Y.FillBytes(message.Body[32:])
-	sign := computeSignature(message.build())
-	message.Signature = sign
-
-	if debug_message {
-		fmt.Printf("[sendPublicKey] PublicKey : %x\n", message.build())
-	}
-
-	return reemit(conn, addr, &message, 3)
-}
-
 func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {
 	if debug_message {
 		fmt.Println("[sendPublicKeyReply] Called")
@@ -260,30 +234,6 @@ func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, er
 
 	_, err := conn.WriteTo(message.build(), addr)
 	return message.Id, err
-}
-
-func sendRoot(conn net.PacketConn, addr net.Addr) (int, error) {
-	if debug_message {
-		fmt.Println("[sendRoot] Called")
-	}
-	message := Message{
-		Id:      id.get(),
-		Dest:    addr,
-		Type:    Root,
-		Length:  32,
-		Body:    make([]byte, 32),
-		Timeout: time.Second,
-	}
-
-	hash := sha256.Sum256([]byte(""))
-	message.Body = hash[:]
-	sign := computeSignature(message.build())
-	message.Signature = sign
-	if debug_message {
-		fmt.Printf("[sendRoot] Root : %x\n", message.build())
-	}
-
-	return reemit(conn, addr, &message, 3)
 }
 
 func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {
@@ -412,18 +362,31 @@ func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node
 	return message.Id, err
 }
 
-func sendNatRequest(conn net.PacketConn, addr net.Addr) (int, error) {
+func sendAllNatRequest(conn net.PacketConn, addr_peer net.Addr) (int, error) {
+	index := FindCachedPeerByName(server_name_peer)
+	addrs_server := make([]net.Addr, 0)
+	cache_peers.mutex.Lock()
+	copy(addrs_server, cache_peers.list[index].Addr)
+	cache_peers.mutex.Unlock()
+	for i := 0; i < len(addrs_server); i++ {
+		ret, err := sendNatRequest(conn, addr_peer, addrs_server[i])
+		if err != nil {
+			return ret, err
+		}
+	}
+
+	return 0, nil
+}
+
+func sendNatRequest(conn net.PacketConn, addr_peer net.Addr, addr_server net.Addr) (int, error) {
 	message := Message{
 		Id:   id.get(),
 		Type: NatTraversalRequest,
 	}
 
-	index := FindCachedPeerByName(server_name_peer)
-	cache_peers.mutex.Lock()
-	message.Dest = cache_peers.list[index].Addr[1]
-	cache_peers.mutex.Unlock()
+	message.Dest = addr_server
 
-	ip, err := netip.ParseAddrPort(addr.String())
+	ip, err := netip.ParseAddrPort(addr_peer.String())
 	if err != nil {
 		fmt.Println("[sendNatRequest] Error parse addr :", err.Error())
 		return -1, nil
@@ -436,12 +399,6 @@ func sendNatRequest(conn net.PacketConn, addr net.Addr) (int, error) {
 	message.Body = append(message.Body, byte(port>>8%(1<<8)))
 	message.Body = append(message.Body, byte(port%(1<<8)))
 	message.Length = uint16(len(message.Body))
-
-	_, err = conn.WriteTo(message.build(), message.Dest)
-
-	// cache_peers.mutex.Lock()
-	// message.Dest = cache_peers.list[index].Addr[1]
-	// cache_peers.mutex.Unlock()
 
 	_, err = conn.WriteTo(message.build(), message.Dest)
 

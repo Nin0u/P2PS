@@ -41,6 +41,41 @@ func DeleteSyncMap(id int32) {
 	sync_map.mutex.Unlock()
 }
 
+func PeerClearer() {
+	sleep_time, _ := time.ParseDuration("30s") // TODO : A adapter peut-être
+	for {
+		time.Sleep(sleep_time)
+		current_time := time.Now()
+		cache_peers.mutex.Lock()
+		for i := 0; i < len(cache_peers.list); i++ {
+			if current_time.Sub(cache_peers.list[i].LastMessageTime) > timeout_cache {
+				removeCachedPeer(i)
+			}
+		}
+		cache_peers.mutex.Unlock()
+	}
+}
+
+func ConnKeeper(client *http.Client, conn net.PacketConn, addr []net.Addr) {
+	sleep_time, _ := time.ParseDuration("30s")
+	for {
+		time.Sleep(sleep_time)
+		for i := 0; i < len(addr); i++ {
+			code, err := sendHello(conn, addr[i], username)
+			if err != nil {
+				fmt.Println("[ConnKeeper] Error while sending hello to ", addr[i], ":", err.Error())
+				if code != -1 {
+					addr = append(addr[:i], addr[i+1:]...)
+
+					if len(addr) == 0 {
+						fmt.Println("ERROR : No more addresses for the server. Closing ConnKeeper.")
+					}
+				}
+			}
+		}
+	}
+}
+
 func Recv(client *http.Client, conn net.PacketConn) {
 	message := make([]byte, 65535+7) //TODO: + une signature
 
@@ -64,7 +99,7 @@ func Recv(client *http.Client, conn net.PacketConn) {
 		} else if t == HelloReply {
 			HandleHelloReply(client, message, nb_byte, addr_sender)
 		} else {
-			err = CheckHandShake(addr_sender)
+			index_peer, err := CheckHandShake(addr_sender)
 			if err != nil {
 				if debug {
 					fmt.Println(err)
@@ -72,17 +107,21 @@ func Recv(client *http.Client, conn net.PacketConn) {
 				continue
 			}
 
+			// TODO : CheckHandShake and UpdatePeerLastMessage in the same Lock !
+
+			UpdatePeerLastMessageTime(index_peer)
+
 			switch t {
 			case NoOp:
 
 			case Error:
-				HandleError(message)
+				HandleError(message, "[Error]")
 
 			case PublicKey:
-				HandlePublicKey(conn, message, nb_byte, addr_sender)
+				HandlePublicKey(conn, message, nb_byte, addr_sender, index_peer)
 
 			case Root:
-				HandleRoot(conn, message, nb_byte, addr_sender)
+				HandleRoot(conn, message, nb_byte, addr_sender, index_peer)
 
 			case GetDatum:
 				HandleGetDatum(conn, message, nb_byte, addr_sender)
@@ -93,13 +132,7 @@ func Recv(client *http.Client, conn net.PacketConn) {
 				go HandleNatTraversal(conn, message_bis, nb_byte, addr_sender)
 
 			case ErrorReply:
-				HandleErrorReply(message)
-
-			case PublicKeyReply:
-				HandlePublicKeyReply(message, nb_byte, addr_sender)
-
-			case RootReply:
-				HandleRootReply(message, nb_byte, addr_sender)
+				HandleError(message, "[ErrorReply]")
 
 			case Datum:
 				HandleDatum(message, nb_byte, addr_sender, conn)
