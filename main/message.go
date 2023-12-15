@@ -170,6 +170,9 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 				fmt.Println("[sendHello] reemit timeout proceed to NatTraversal")
 			}
 
+			//TODO: Le message il est pas fiable !
+			//TODO: Potentiellement le faire plusieurs fois !
+			//TODO: Map(ip, wg)
 			return sendAllNatRequest(conn, addr)
 		} else {
 			if debug_message {

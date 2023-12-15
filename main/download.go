@@ -248,7 +248,7 @@ func download_multi_aux(conn net.PacketConn, req *RequestDatum, p *Peer) []Reque
 }
 
 func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path string) {
-	max_request := 512
+	const max_request = 512
 
 	reqDatum := make([]RequestDatum, 0)
 	reqDatum = append(reqDatum, buildRequestDatum(start_path, first_hash, 0))
@@ -261,7 +261,7 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 		reqDatum = reqDatum[:len(reqDatum)-nb]
 
 		//Demand the next nodes by multithreading
-		var buffs = [32][]RequestDatum{}
+		var buffs = [max_request][]RequestDatum{}
 		var wg sync.WaitGroup
 		wg.Add(nb)
 		for i := 0; i < nb; i++ {

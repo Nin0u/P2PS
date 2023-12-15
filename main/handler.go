@@ -86,6 +86,8 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 		fmt.Println("[HandleHello] Triggered")
 	}
 
+	//TODO: Il faut regarder si tu attendais un hello de lui et du coup unlock le natTraversal de ton send Hello!
+
 	checkHello(client, message, nb_byte, addr_sender, "[HandleHello]")
 
 	_, err := sendHelloReply(conn, addr_sender, name, getID(message))

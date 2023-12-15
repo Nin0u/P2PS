@@ -25,6 +25,7 @@ var rest_commands = []Command{
 	{CommandName: "get_root  ", Argument: "<peername>         ", HelpText: "get the peer's root"},
 }
 
+// TODO: Ajoute hello <peername>
 var p2p_commands = []Command{
 	{CommandName: "hello     ", Argument: "<addr>             ", HelpText: "sends Hello to the given address"},
 	{CommandName: "public_key", Argument: "<addr>             ", HelpText: "sends Publickey to the given address"},
@@ -307,7 +308,7 @@ func handleListAddr(client *http.Client, words []string) {
 	}
 }
 
-// TODO: Gerer une liste de pair au lieu de faire comme ça
+// TODO: Le faire pour un pair / donc toutes ses addr
 func handleSendHello(conn net.PacketConn, words []string) {
 	if len(words) != 2 {
 		fmt.Println("Wrong number of argument !")
