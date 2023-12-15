@@ -154,6 +154,7 @@ func start(client *http.Client, conn net.PacketConn) {
 		_, err = sendHello(conn, addr, username)
 		if err != nil {
 			fmt.Println("Error send hello :", err.Error())
+			continue
 		}
 
 		conkeeper_addrs = append(conkeeper_addrs, addr)

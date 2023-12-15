@@ -36,7 +36,7 @@ It verifies the signature and adds or update the cache
 func checkHello(client *http.Client, message []byte, nb_byte int, addr_sender net.Addr, error_label string) {
 	// Sender's name is not empty
 	len := getLength(message)
-	if len != 0 {
+	if len == 0 {
 		if debug_handler {
 			fmt.Println(error_label, "The sender has no name")
 		}
