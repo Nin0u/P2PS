@@ -17,17 +17,6 @@ const (
 
 var debug_handler bool = false
 
-// This function unblocks the waitgroup associated with a messageId
-func unblock(message_id int32) {
-	sync_map.mutex.Lock()
-	wg, b := sync_map.content[message_id]
-	if b {
-		wg.Done()
-		delete(sync_map.content, message_id)
-	}
-	sync_map.mutex.Unlock()
-}
-
 /*
 This function is called while handling Hello and HelloReply
 It checks if the name is empty or not
@@ -86,8 +75,10 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 		fmt.Println("[HandleHello] Triggered")
 	}
 
-	//TODO: Il faut regarder si tu attendais un hello de lui et du coup unlock le natTraversal de ton send Hello!
+	// Check if we expected a Hello from the sender through a NATTraversal
+	nat_sync_map.Unblock(addr_sender)
 
+	// Checking signature and all
 	checkHello(client, message, nb_byte, addr_sender, "[HandleHello]")
 
 	_, err := sendHelloReply(conn, addr_sender, name, getID(message))
@@ -102,7 +93,7 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 	if debug_handler {
 		fmt.Println("[HandleHelloReply] Triggered")
 	}
-	defer unblock(getID(message))
+	defer sync_map.Unblock(getID(message))
 
 	checkHello(client, message, nb_byte, addr_sender, "[HandleHelloReply]")
 }
@@ -174,7 +165,7 @@ func HandleError(message []byte, error_label string) {
 }
 
 func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.PacketConn) {
-	defer unblock(getID(message))
+	defer sync_map.Unblock(getID(message))
 
 	if debug_handler {
 		fmt.Println("[HandleDatum] Datum Received id :", getID(message))
@@ -200,7 +191,7 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 }
 
 func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
-	defer unblock(getID(message))
+	defer sync_map.Unblock(getID(message))
 
 	hash := message[7 : 7+32]
 	fmt.Printf("NoDatum for the hash : %x\n", hash)

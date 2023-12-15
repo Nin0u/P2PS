@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -82,66 +81,6 @@ func getLength(m []byte) uint16 {
 	return uint16(m[5])<<8 + uint16(m[6])
 }
 
-// ! Code found on https://stackoverflow.com/questions/32840687/timeout-for-waitgroup-wait/32840688#32840688
-// waitTimeout waits for the waitgroup for the specified max timeout.
-// Returns true if waiting timed out.
-func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
-	c := make(chan struct{})
-	go func() {
-		defer close(c)
-		wg.Wait()
-	}()
-	select {
-	case <-c:
-		return false // completed normally
-	case <-time.After(timeout):
-		return true // timed out
-	}
-}
-
-func reemit(conn net.PacketConn, addr net.Addr, message *Message, nb_timeout int) (int, error) {
-	var wg = &sync.WaitGroup{}
-	wg.Add(1)
-	SetSyncMap(message.Id, wg)
-
-	for i := 0; i < nb_timeout; i++ {
-		_, err := conn.WriteTo(message.build(), addr)
-		if err != nil {
-			if debug_message {
-				fmt.Println("[reemit] Erreur :", err)
-			}
-			return i, err
-		}
-
-		// Timeout peut etre pour éviter de bloquer indéfiniment
-		has_timedout := waitTimeout(wg, message.Timeout)
-
-		if has_timedout {
-			if debug_message {
-				fmt.Printf("[reemit] Timeout on id : %d %p\n", message.Id, wg)
-			}
-			message.Timeout *= 2
-		} else {
-			return i, nil
-		}
-	}
-
-	//Atomic Operation !!!
-	//Here we want to prevent from double wg.done() because it causes crashes
-	//Assure that nobody is going to do a wg.done() !
-	//If someone do a wg.done() before -> we have received the packet and have timeout, it's weird but acceptable
-	sync_map.mutex.Lock()
-	_, ok := sync_map.content[message.Id]
-	if ok {
-		//Unlock all the thread that are blocked by the waitgroup
-		wg.Done()
-		delete(sync_map.content, message.Id)
-	}
-	sync_map.mutex.Unlock()
-
-	return -1, errors.New("\n[reemit] Timeout exceeded")
-}
-
 func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 	if debug_message {
 		fmt.Println("[sendHello] Called")
@@ -163,16 +102,17 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 		fmt.Printf("[sendHello] Hello : %x\n", message.build())
 	}
 
-	n, err := reemit(conn, addr, &message, 3)
+	n, err := sync_map.Reemit(conn, addr, &message, message.Id, 3)
 	if err != nil {
 		if n == -1 {
 			if debug_message {
 				fmt.Println("[sendHello] reemit timeout proceed to NatTraversal")
 			}
 
-			//TODO: Le message il est pas fiable !
-			//TODO: Potentiellement le faire plusieurs fois !
-			//TODO: Map(ip, wg)
+			// Message is not reliable. Have to reemit the NATTraversal until it's ok
+			var wg sync.WaitGroup
+			wg.Add(1)
+			nat_sync_map.SetSyncMap(addr, &wg)
 			return sendAllNatRequest(conn, addr)
 		} else {
 			if debug_message {
@@ -289,7 +229,7 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 		fmt.Printf("[sendGetDatum] GetDatum : %x\n", message.build())
 	}
 
-	return reemit(conn, addr, &message, 5)
+	return sync_map.Reemit(conn, addr, &message, message.Id, 5)
 }
 
 func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (int32, error) {
@@ -403,7 +343,5 @@ func sendNatRequest(conn net.PacketConn, addr_peer net.Addr, addr_server net.Add
 	message.Body = append(message.Body, byte(port%(1<<8)))
 	message.Length = uint16(len(message.Body))
 
-	_, err = conn.WriteTo(message.build(), message.Dest)
-
-	return int(message.Id), err
+	return nat_sync_map.Reemit(conn, addr_server, &message, addr_peer, 3)
 }

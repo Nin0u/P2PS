@@ -18,21 +18,10 @@ type Command struct {
 	HelpText    string
 }
 
-var rest_commands = []Command{
-	{CommandName: "list      ", Argument: "                   ", HelpText: "list all peers"},
-	{CommandName: "addr      ", Argument: "<peername>         ", HelpText: "list addresses of the peer"},
-	{CommandName: "get_key   ", Argument: "<peername>         ", HelpText: "get the peer's public key"},
-	{CommandName: "get_root  ", Argument: "<peername>         ", HelpText: "get the peer's root"},
-}
-
-// TODO: Ajoute hello <peername>
-var p2p_commands = []Command{
-	{CommandName: "hello     ", Argument: "<addr>             ", HelpText: "sends Hello to the given address"},
-	{CommandName: "public_key", Argument: "<addr>             ", HelpText: "sends Publickey to the given address"},
-	{CommandName: "root      ", Argument: "<addr>             ", HelpText: "sends Root to the given address"},
-	{CommandName: "nat       ", Argument: "<peername>         ", HelpText: "nat traversal"},
-	{CommandName: "data      ", Argument: "<peername>         ", HelpText: "list data of the peer"},
-	{CommandName: "data_dl   ", Argument: "<peername> [<path>]", HelpText: "download data of the peer. If a path is given then it will download all the data from this path."},
+var commands = []Command{{
+	CommandName: "list    ", Argument: "                   ", HelpText: "list all peers"},
+	{CommandName: "data   ", Argument: "<peername>         ", HelpText: "list data of the peer"},
+	{CommandName: "data_dl", Argument: "<peername> [<path>]", HelpText: "download data of the peer. If a path is given then it will download all the data from this path."},
 }
 
 // Command History
@@ -74,11 +63,11 @@ func getHistoryCommand(s *string) {
 
 	if history_cursor == len(command_history) {
 		*s = ""
-		fmt.Printf("\r%s%s\r%s", prompt, blank, prompt)
 	} else {
 		*s = command_history[history_cursor]
-		fmt.Printf("\r%s%s\r%s%s", prompt, blank, prompt, *s)
 	}
+
+	fmt.Printf("\r%s%s\r%s%s", prompt, blank, prompt, *s)
 }
 
 func moveInputCursor(left bool, s *string) {
@@ -122,13 +111,9 @@ func title_print() {
 }
 
 func print_help() {
-	fmt.Println("--------------- REST Commands ---------------")
-	for i := 0; i < len(rest_commands); i++ {
-		fmt.Println(rest_commands[i].CommandName + " " + rest_commands[i].Argument + " " + rest_commands[i].HelpText)
-	}
-	fmt.Println("\n--------------- P2P Commands ---------------")
-	for i := 0; i < len(p2p_commands); i++ {
-		fmt.Println(p2p_commands[i].CommandName + " " + p2p_commands[i].Argument + " " + p2p_commands[i].HelpText)
+	fmt.Println("--------------- Commands ---------------")
+	for i := 0; i < len(commands); i++ {
+		fmt.Println(commands[i].CommandName + " " + commands[i].Argument + " " + commands[i].HelpText)
 	}
 	fmt.Println("\n(Type help to display this list)")
 	fmt.Println("Press escape to exit the program.")
@@ -178,20 +163,12 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 	case "list":
 		handleList(client)
 
-	case "addr":
-		handleListAddr(client, words)
-
-	case "get_key":
-		handleGetKey(client, words)
-
-	case "get_root":
-		handleGetRoot(client, words)
-
 	case "hello":
-		handleSendHello(conn, words)
+		handleSendHello(client, conn, words)
 
 	case "data":
 		handleGetData(client, conn, words)
+
 	case "data_dl":
 		handleGetDataDL(client, conn, words)
 
@@ -289,74 +266,31 @@ func handleList(client *http.Client) {
 	}
 }
 
-func handleListAddr(client *http.Client, words []string) {
+func handleSendHello(client *http.Client, conn net.PacketConn, words []string) {
 	if len(words) != 2 {
 		fmt.Println("Wrong number of argument !")
 		return
 	}
 
-	list, err := GetAddresses(client, words[1])
+	addrs_peer, err := GetAddresses(client, words[1])
 	if err != nil {
-		fmt.Println("Error getAddr http :", err.Error())
+		fmt.Println("Error while fetching peer's addresses")
 		return
 	}
 
-	fmt.Println("Here are the addresses of ", words[1], ":")
+	for i := 0; i < len(addrs_peer); i++ {
+		addr, err := net.ResolveUDPAddr("udp", addrs_peer[i])
+		if err != nil {
+			fmt.Println("Error resolve addr", err.Error())
+			return
+		}
+		_, err = sendHello(conn, addr, username)
 
-	for i := 0; i < len(list); i++ {
-		fmt.Println(list[i])
+		if err != nil {
+			fmt.Println("Error send hello :", err.Error())
+			return
+		}
 	}
-}
-
-// TODO: Le faire pour un pair / donc toutes ses addr
-func handleSendHello(conn net.PacketConn, words []string) {
-	if len(words) != 2 {
-		fmt.Println("Wrong number of argument !")
-		return
-	}
-
-	addr, err := net.ResolveUDPAddr("udp", words[1])
-	if err != nil {
-		fmt.Println("Error resolve addr", err.Error())
-		return
-	}
-	_, err = sendHello(conn, addr, username)
-
-	if err != nil {
-		fmt.Println("Error send hello :", err.Error())
-		return
-	}
-}
-
-func handleGetKey(client *http.Client, words []string) {
-	if len(words) != 2 {
-		fmt.Println("Wrong number of argument !")
-		return
-	}
-
-	key, err := GetKey(client, words[1])
-	if err != nil {
-		fmt.Println("Error getKey http : ", err.Error())
-		return
-	}
-
-	fmt.Printf("Public key of peer %s is : %x\n", words[1], string(key))
-}
-
-func handleGetRoot(client *http.Client, words []string) {
-	if len(words) != 2 {
-		fmt.Println("Wrong number of argument !")
-		return
-	}
-
-	hash, err := GetRoot(client, words[1])
-
-	if err != nil {
-		fmt.Println("Error getRoot http : ", err.Error())
-		return
-	}
-
-	fmt.Printf("Root of peer %s is : %x\n", words[1], string(hash))
 }
 
 func handleGetData(client *http.Client, conn net.PacketConn, words []string) {
