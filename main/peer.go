@@ -113,7 +113,6 @@ func FindCachedPeerByName(name string) int {
 }
 
 func FindCachedPeerByAddr(addr net.Addr) int {
-	cache_peers.mutex.Lock()
 	for i := 0; i < len(cache_peers.list); i++ {
 		for j := 0; j < len(cache_peers.list[i].Addr); j++ {
 			if cache_peers.list[i].Addr[j].String() == addr.String() {
@@ -122,7 +121,6 @@ func FindCachedPeerByAddr(addr net.Addr) int {
 			}
 		}
 	}
-	cache_peers.mutex.Unlock()
 	return -1
 }
 
@@ -137,6 +135,7 @@ func CheckHandShake(addr_sender net.Addr) (int, error) {
 		fmt.Println("[CheckHandShake] addr:", addr_sender)
 	}
 
+	cache_peers.mutex.Lock()
 	index := FindCachedPeerByAddr(addr_sender)
 	if index == -1 {
 		if debug_peer {
@@ -145,6 +144,8 @@ func CheckHandShake(addr_sender net.Addr) (int, error) {
 
 		return index, errors.New("handshake error : peer not cached")
 	}
+	UpdatePeerLastMessageTime(index)
+	cache_peers.mutex.Unlock()
 
 	return index, nil
 }

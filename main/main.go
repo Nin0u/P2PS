@@ -107,10 +107,6 @@ func Recv(client *http.Client, conn net.PacketConn) {
 				continue
 			}
 
-			// TODO : CheckHandShake and UpdatePeerLastMessage in the same Lock !
-
-			UpdatePeerLastMessageTime(index_peer)
-
 			switch t {
 			case NoOp:
 
