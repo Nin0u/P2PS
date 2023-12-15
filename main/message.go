@@ -8,7 +8,6 @@ import (
 	"net/netip"
 	"os"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -110,9 +109,6 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 			}
 
 			// Message is not reliable. Have to reemit the NATTraversal until it's ok
-			var wg sync.WaitGroup
-			wg.Add(1)
-			nat_sync_map.SetSyncMap(addr, &wg)
 			return sendAllNatRequest(conn, addr)
 		} else {
 			if debug_message {
@@ -309,12 +305,14 @@ func sendAllNatRequest(conn net.PacketConn, addr_peer net.Addr) (int, error) {
 	index := FindCachedPeerByName(server_name_peer)
 	addrs_server := make([]net.Addr, 0)
 	cache_peers.mutex.Lock()
-	copy(addrs_server, cache_peers.list[index].Addr)
+	for i := 0; i < len(cache_peers.list); i++ {
+		addrs_server = append(addrs_server, cache_peers.list[index].Addr[i])
+	}
 	cache_peers.mutex.Unlock()
 	for i := 0; i < len(addrs_server); i++ {
-		ret, err := sendNatRequest(conn, addr_peer, addrs_server[i])
+		_, err := sendNatRequest(conn, addr_peer, addrs_server[i])
 		if err != nil {
-			return ret, err
+			fmt.Println("[sendAllNatRequest] Error :", err)
 		}
 	}
 
@@ -323,8 +321,9 @@ func sendAllNatRequest(conn net.PacketConn, addr_peer net.Addr) (int, error) {
 
 func sendNatRequest(conn net.PacketConn, addr_peer net.Addr, addr_server net.Addr) (int, error) {
 	message := Message{
-		Id:   id.get(),
-		Type: NatTraversalRequest,
+		Id:      id.get(),
+		Type:    NatTraversalRequest,
+		Timeout: time.Second,
 	}
 
 	message.Dest = addr_server
