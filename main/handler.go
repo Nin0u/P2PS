@@ -35,7 +35,9 @@ func checkHello(client *http.Client, message []byte, nb_byte int, addr_sender ne
 	name_sender := string(message[7+4 : 7+len])
 	data := message[:7+len]
 	signature := message[7+len : nb_byte]
+	cache_peers.mutex.Lock()
 	index_peer := FindCachedPeerByName(name_sender)
+	cache_peers.mutex.Unlock()
 
 	var key []byte
 	// I don't know the peer

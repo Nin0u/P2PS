@@ -81,8 +81,8 @@ func handlePeerData(w http.ResponseWriter, r *http.Request) {
 	// TODO use errors
 	execGetData(clientG, connG, []string{"data", m.PeerName})
 
-	index := FindCachedPeerByName(m.PeerName)
 	cache_peers.mutex.Lock()
+	index := FindCachedPeerByName(m.PeerName)
 	root := cache_peers.list[index].Root
 	cache_peers.mutex.Unlock()
 

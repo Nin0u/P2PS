@@ -309,7 +309,10 @@ func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node
 }
 
 func sendAllNatRequest(conn net.PacketConn, addr_peer net.Addr) (int, error) {
+	cache_peers.mutex.Lock()
 	index := FindCachedPeerByName(server_name_peer)
+	cache_peers.mutex.Unlock()
+
 	addrs_server := make([]net.Addr, 0)
 	cache_peers.mutex.Lock()
 	for i := 0; i < len(cache_peers.list); i++ {
@@ -367,12 +370,12 @@ func sendRoot(conn net.PacketConn) error {
 		fmt.Printf("[sendRootReply] RootReply : %x\n", message.build())
 	}
 
+	cache_peers.mutex.Lock()
 	index := FindCachedPeerByName(server_name_peer)
 	if index == -1 {
 		fmt.Print("[sendRoot] Error finding server name")
 		return errors.New("Error sendRoot finding server name")
 	}
-	cache_peers.mutex.Lock()
 	addrs_server := cache_peers.list[index].Addr
 	cache_peers.mutex.Unlock()
 

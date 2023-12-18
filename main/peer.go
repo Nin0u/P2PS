@@ -66,7 +66,9 @@ func AddCachedPeer(p Peer) {
 		fmt.Println("[AddCachedPeer] Calling FindCachePeerByName")
 	}
 
+	cache_peers.mutex.Lock()
 	index := FindCachedPeerByName(p.Name)
+	cache_peers.mutex.Unlock()
 	if index == -1 {
 		if debug_peer {
 			fmt.Printf("[AddCachedPeer] Adding %s in cache\n", p.Name)
