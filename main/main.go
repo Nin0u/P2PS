@@ -7,11 +7,19 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 )
 
 var debug bool = false
 var username string = ""
+
+var timeout_datum_clear, _ = time.ParseDuration("30s") // TODO : à adapter
+
+var DatumCacheClearer = sync.OnceFunc(func() {
+	fmt.Println("DatumCacheClearer Called")
+	go datumCacheClearer()
+})
 
 func PeerClearer() {
 	sleep_time, _ := time.ParseDuration("30s") // TODO : A adapter peut-être
@@ -25,6 +33,22 @@ func PeerClearer() {
 			}
 		}
 		cache_peers.mutex.Unlock()
+	}
+}
+
+func datumCacheClearer() {
+	sleep_time, _ := time.ParseDuration("30s") // TODO : A adapter peut-être
+	for {
+		time.Sleep(sleep_time)
+		current_time := time.Now()
+		datumCache.mutex.Lock()
+		for k, v := range datumCache.content {
+			if current_time.Sub(v.LastTimeUsed) > timeout_datum_clear {
+				fmt.Printf("[DatumCacheClearer] clearing data with hash %x\n", k)
+				delete(datumCache.content, k)
+			}
+		}
+		datumCache.mutex.Unlock()
 	}
 }
 
