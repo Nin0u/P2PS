@@ -7,29 +7,37 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Keys are Hash, Value are the value in the getDatum request
+
+type Data struct {
+	Value        []byte
+	LastTimeUsed time.Time
+}
+
 type DatumCache struct {
-	content map[[32]byte][]byte
+	content map[[32]byte]Data
 	mutex   sync.Mutex
 }
 
-var datumCache DatumCache = DatumCache{content: make(map[[32]byte][]byte)}
+var datumCache DatumCache = DatumCache{content: make(map[[32]byte]Data)}
 
-// TODO: mettre un timeout avec time.AfterFunc pour vider le cache
-// TODO: verifier que le cache est pas trop gros
+// TODO : On part pour l'instant du principe que la taille  est limitée par le temps mais à voir avec le multi DL
 func AddDatumCache(hash [32]byte, value []byte) {
+	DatumCacheClearer()
 	datumCache.mutex.Lock()
-	datumCache.content[hash] = value
+	datumCache.content[hash] = Data{Value: value, LastTimeUsed: time.Now()}
 	datumCache.mutex.Unlock()
 }
 
 func GetDatumCache(hash [32]byte) ([]byte, bool) {
 	datumCache.mutex.Lock()
 	value, ok := datumCache.content[hash]
+	value.LastTimeUsed = time.Now()
 	datumCache.mutex.Unlock()
-	return value, ok
+	return value.Value, ok
 }
 
 func PrintDatumCache() {
