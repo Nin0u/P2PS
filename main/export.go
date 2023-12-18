@@ -25,11 +25,13 @@ type MapExport struct {
 	Mutex   sync.Mutex
 }
 
-var map_export map[[32]byte]*ExportNode = map[[32]byte]*ExportNode{}
+var map_export MapExport = MapExport{Content: map[[32]byte]*ExportNode{}}
 
 func buildExportNode(path string, hash [32]byte, num int64, type_file byte) *ExportNode {
 	node := ExportNode{Path: path, Hash: hash, Num: num, Type: type_file}
-	map_export[hash] = &node
+	map_export.Mutex.Lock()
+	map_export.Content[hash] = &node
+	map_export.Mutex.Unlock()
 	return &node
 }
 

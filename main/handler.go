@@ -212,7 +212,9 @@ func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sende
 
 	hash := message[7 : 7+32]
 
-	node, ok := map_export[[32]byte(hash)]
+	map_export.Mutex.Lock()
+	node, ok := map_export.Content[[32]byte(hash)]
+	map_export.Mutex.Unlock()
 	if !ok {
 		//fmt.Println("No Datum :", hash)
 		_, err := sendNoDatum(conn, addr_sender, [32]byte(hash), getID(message))

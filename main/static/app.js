@@ -148,7 +148,7 @@ function buildTree(data, elt_html, path) {
     let summary = elt.appendChild(document.createElement("summary"));
     summary.classList.add("node");
     summary.textContent = data.Name;
-    summary.setAttribute("path", path + data.Name + "/");
+    summary.setAttribute("path", path + data.Name);
     summary.addEventListener("click", clickFile);
 
     let ul = elt.appendChild(document.createElement("ul"));

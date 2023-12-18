@@ -106,6 +106,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		}
 		break
 	}
+	fmt.Println("PATH", m.Path)
 	handleGetDataDL(clientG, connG, []string{"data_dl", m.PeerName, m.Path})
 }
 
