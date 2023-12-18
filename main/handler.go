@@ -259,3 +259,17 @@ func HandleNatTraversal(conn net.PacketConn, message []byte, nb_byte int, addr_s
 
 	sendHello(conn, addr_dest, username)
 }
+
+func HandleRootReply(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
+	defer sync_map.Unblock(getID(message))
+
+	hash := message[7 : 7+32]
+	map_export.Mutex.Lock()
+	hash_c := rootExport.Hash
+	map_export.Mutex.Unlock()
+
+	if [32]byte(hash) != hash_c {
+		fmt.Println("[HandleRootReply] Error not correct hash")
+		return
+	}
+}

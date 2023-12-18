@@ -134,7 +134,7 @@ function clickUpdateDL() {
 
 
 function buildTree(data, elt_html, path) {
-    if(data.Children.length == 0) {
+    if(data.FileType != 2) {
         let elt = elt_html.appendChild(document.createElement("li"));
         elt.classList.add("node");
         elt.textContent = data.Name;

@@ -22,6 +22,7 @@ var commands = []Command{{
 	CommandName: "list    ", Argument: "                   ", HelpText: "list all peers"},
 	{CommandName: "data   ", Argument: "<peername>         ", HelpText: "list data of the peer"},
 	{CommandName: "data_dl", Argument: "<peername> [<path>]", HelpText: "download data of the peer. If a path is given then it will download all the data from this path."},
+	{CommandName: "export ", Argument: "<path>             ", HelpText: "export the file/folder you choose"},
 }
 
 // Command History
@@ -171,6 +172,9 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 
 	case "data_dl":
 		handleGetDataDL(client, conn, words)
+
+	case "export":
+		treatExport(conn, words)
 
 	case "help":
 		print_help()
@@ -378,4 +382,25 @@ func handleGetDataDL(client *http.Client, conn net.PacketConn, words []string) {
 	}
 
 	fmt.Println("END !")
+}
+
+func treatExport(conn net.PacketConn, words []string) {
+	if len(words) != 2 {
+		fmt.Println("Wrong number of argument !")
+		return
+	}
+
+	err := export(words[0])
+	if err != nil {
+		fmt.Println("[treatExport] ", err.Error())
+		return
+	}
+
+	err = sendRoot(conn)
+	if err != nil {
+		fmt.Println("[treatExport] ", err.Error())
+		return
+	}
+
+	return
 }

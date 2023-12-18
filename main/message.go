@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -187,11 +188,13 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) 
 		Body:   make([]byte, 32),
 	}
 	hash := [32]byte{}
+	map_export.Mutex.Lock()
 	if rootExport == nil {
 		hash = sha256.Sum256([]byte(""))
 	} else {
 		hash = rootExport.Hash
 	}
+	map_export.Mutex.Unlock()
 
 	message.Body = hash[:]
 	sign := computeSignature(message.build())
@@ -343,4 +346,38 @@ func sendNatRequest(conn net.PacketConn, addr_peer net.Addr, addr_server net.Add
 	message.Length = uint16(len(message.Body))
 
 	return nat_sync_map.Reemit(conn, addr_server, &message, addr_peer, 3)
+}
+
+func sendRoot(conn net.PacketConn) error {
+	map_export.Mutex.Lock()
+	message := Message{
+		Id:      id.get(),
+		Type:    Root,
+		Body:    rootExport.Hash[:],
+		Length:  32,
+		Timeout: time.Second,
+	}
+	map_export.Mutex.Unlock()
+
+	if debug_message {
+		fmt.Printf("[sendRootReply] RootReply : %x\n", message.build())
+	}
+
+	index := FindCachedPeerByName(server_name_peer)
+	if index == -1 {
+		fmt.Print("[sendRoot] Error finding server name")
+		return errors.New("Error sendRoot finding server name")
+	}
+	cache_peers.mutex.Lock()
+	addrs_server := cache_peers.list[index].Addr
+	cache_peers.mutex.Unlock()
+
+	for i := 0; i < len(addrs_server); i++ {
+		_, err := sync_map.Reemit(conn, addrs_server[i], &message, message.Id, 3)
+		if err != nil {
+			fmt.Println("[sendAllNatRequest] Error :", err)
+			return err
+		}
+	}
+	return nil
 }

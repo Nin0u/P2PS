@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -29,9 +30,7 @@ var map_export MapExport = MapExport{Content: map[[32]byte]*ExportNode{}}
 
 func buildExportNode(path string, hash [32]byte, num int64, type_file byte) *ExportNode {
 	node := ExportNode{Path: path, Hash: hash, Num: num, Type: type_file}
-	map_export.Mutex.Lock()
 	map_export.Content[hash] = &node
-	map_export.Mutex.Unlock()
 	return &node
 }
 
@@ -135,57 +134,33 @@ func exportDirectory(path string) *ExportNode {
 	return node
 }
 
-func export(path string) {
-
+func export(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		fmt.Println("[Export] Error stat", path, err.Error())
-		return
+		return errors.New("No such file")
 	}
 
-	//TODO: Vider la map !
-	//TODO: Add mutex
+	//We throw the older map
+	map_export.Mutex.Lock()
+	for k := range map_export.Content {
+		delete(map_export.Content, k)
+	}
+
 	if info.IsDir() {
 		rootExport = exportDirectory(path)
 	} else {
 		rootExport = exportFile(path)
+		//If it's a file, we have to create a parent folder
+		hashhash := make([]byte, 0)
+		hashhash = append(hashhash, DIRECTORY)
+		hashhash = append(hashhash, []byte(info.Name())...)
+		hashhash = append(hashhash, rootExport.Hash[:]...)
+		hash := sha256.Sum256(hashhash)
+		node := buildExportNode("", hash, 0, DIRECTORY)
+		rootExport = node
 	}
-}
 
-func writeExportTree(root *ExportNode) {
-	if root.Type == CHUNK {
-		fmt.Println("WRITE CHUNK", root.Num)
-		f1, err := os.OpenFile(root.Path, os.O_RDONLY, os.ModePerm)
-		if err != nil {
-			fmt.Println("BLABLA :", err.Error())
-			return
-		}
-
-		data := make([]byte, 1024)
-		n, err := f1.ReadAt(data, root.Num)
-		if err != nil && err != io.EOF {
-			fmt.Println("[writeExportFile] error read", n, err.Error())
-			return
-		}
-
-		f2, err := os.OpenFile("Test/"+root.Path, os.O_WRONLY|os.O_CREATE, os.ModePerm)
-		if err != nil {
-			fmt.Println("NANANA :", err.Error())
-			return
-		}
-
-		_, err = f2.WriteAt(data[:n], root.Num)
-		if err != nil {
-			fmt.Println("GHGHGHG :", err.Error())
-			return
-		}
-
-		f1.Close()
-		f2.Close()
-	} else {
-		fmt.Println("Explore :", root.Hash)
-		for i := 0; i < len(root.Children); i++ {
-			writeExportTree(root.Children[i])
-		}
-	}
+	map_export.Mutex.Unlock()
+	return nil
 }
