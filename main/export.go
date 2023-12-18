@@ -135,6 +135,7 @@ func exportDirectory(path string) *ExportNode {
 }
 
 func export(path string) error {
+	fmt.Println("[Export] path :", path)
 	info, err := os.Stat(path)
 	if err != nil {
 		fmt.Println("[Export] Error stat", path, err.Error())

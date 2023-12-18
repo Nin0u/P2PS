@@ -390,7 +390,7 @@ func treatExport(conn net.PacketConn, words []string) {
 		return
 	}
 
-	err := export(words[0])
+	err := export(words[1])
 	if err != nil {
 		fmt.Println("[treatExport] ", err.Error())
 		return

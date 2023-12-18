@@ -95,6 +95,9 @@ func Recv(client *http.Client, conn net.PacketConn) {
 				HandleGetDatum(conn, message, nb_byte, addr_sender)
 
 			case NatTraversal:
+				fmt.Println("nb_byte =", nb_byte)
+				le := getLength(message)
+				fmt.Println("length = ", le)
 				message_bis := make([]byte, nb_byte)
 				copy(message_bis, message)
 				go HandleNatTraversal(conn, message_bis, nb_byte, addr_sender)
@@ -107,6 +110,9 @@ func Recv(client *http.Client, conn net.PacketConn) {
 
 			case NoDatum:
 				HandleNoDatum(message, nb_byte, addr_sender)
+
+			case RootReply:
+				HandleRootReply(conn, message, nb_byte, addr_sender)
 
 			default:
 				fmt.Printf("Unknown/Unexpected message type %d\n", t)

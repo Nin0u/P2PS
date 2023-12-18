@@ -372,10 +372,13 @@ func sendRoot(conn net.PacketConn) error {
 	addrs_server := cache_peers.list[index].Addr
 	cache_peers.mutex.Unlock()
 
+	sign := computeSignature(message.build())
+	message.Signature = sign
+
 	for i := 0; i < len(addrs_server); i++ {
 		_, err := sync_map.Reemit(conn, addrs_server[i], &message, message.Id, 3)
 		if err != nil {
-			fmt.Println("[sendAllNatRequest] Error :", err)
+			fmt.Println("[SendRoot] Error :", err)
 			return err
 		}
 	}

@@ -161,7 +161,7 @@ func HandleError(message []byte, error_label string) {
 		fmt.Println(error_label, "Triggered")
 	}
 	len := getLength(message)
-	fmt.Printf(error_label, ": %s\n", message[7:7+len])
+	fmt.Println(error_label, ":", string(message[7:7+len]))
 }
 
 func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.PacketConn) {
@@ -238,7 +238,8 @@ func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sende
 // * Peut etre que lui doit attendre un hello apres le sendHello ? on verra...
 func HandleNatTraversal(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	//Parse Addr
-	addr_byte := message[7:nb_byte]
+	addr_byte := message[7 : 7+getLength(message)]
+	fmt.Println("nb_byte = ", nb_byte)
 	if debug_handler {
 		fmt.Println("[HandleNatTraversal]", addr_byte)
 	}
