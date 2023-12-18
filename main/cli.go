@@ -266,6 +266,8 @@ func handleList(client *http.Client) {
 	}
 }
 
+// TODO: Tous les handler devrait renvoyait un booléen, ou un erreur pour savoir si tout c'est bien passé
+// ! Neccessaire pour le gui !
 func handleSendHello(client *http.Client, conn net.PacketConn, words []string) {
 	if len(words) != 2 {
 		fmt.Println("Wrong number of argument !")
@@ -298,7 +300,7 @@ func handleGetData(client *http.Client, conn net.PacketConn, words []string) *Pe
 		fmt.Println("Wrong number of argument !")
 		return nil
 	}
-	//TODO: SendHello
+	//TODO: SendHello test la reponse
 	handleSendHello(client, conn, words)
 
 	index := FindCachedPeerByName(words[1])
@@ -329,7 +331,8 @@ func handleGetDataDL(client *http.Client, conn net.PacketConn, words []string) {
 		fmt.Println("Wrong number of argument !")
 		return
 	}
-	//TODO: SendHello
+	//TODO: SendHello test la reponse
+	handleSendHello(client, conn, []string{"hello", words[1]})
 
 	index := FindCachedPeerByName(words[1])
 	if index == -1 {
