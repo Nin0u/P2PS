@@ -81,7 +81,7 @@ func getLength(m []byte) uint16 {
 	return uint16(m[5])<<8 + uint16(m[6])
 }
 
-func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
+func sendHello(conn net.PacketConn, addr net.Addr, name string, send_NT bool) (int, error) {
 	if debug_message {
 		fmt.Println("[sendHello] Called")
 	}
@@ -109,8 +109,12 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string) (int, error) {
 				fmt.Println("[sendHello] reemit timeout proceed to NatTraversal")
 			}
 
-			// Message is not reliable. Have to reemit the NATTraversal until it's ok
-			return sendAllNatRequest(conn, addr)
+			if send_NT {
+				// Message is not reliable. Have to reemit the NATTraversal until it's ok
+				return sendAllNatRequest(conn, addr)
+			}
+
+			return -1, err
 		} else {
 			if debug_message {
 				fmt.Println("[sendHello] Error :", err)

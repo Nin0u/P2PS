@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -138,7 +139,7 @@ func start(client *http.Client, conn net.PacketConn) {
 			return
 		}
 
-		_, err = sendHello(conn, addr, username)
+		_, err = sendHello(conn, addr, username, false)
 		if err != nil {
 			fmt.Println("Error send hello :", err.Error())
 			continue
@@ -162,19 +163,19 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 
 	switch words[0] {
 	case "list":
-		handleList(client)
+		execList(client)
 
 	case "hello":
-		handleSendHello(client, conn, words)
+		execSendHello(client, conn, words)
 
 	case "data":
-		handleGetData(client, conn, words)
+		execGetData(client, conn, words)
 
 	case "data_dl":
-		handleGetDataDL(client, conn, words)
+		execGetDataDL(client, conn, words)
 
 	case "export":
-		treatExport(conn, words)
+		execExport(conn, words)
 
 	case "help":
 		print_help()
@@ -257,7 +258,7 @@ func cli(client *http.Client, conn net.PacketConn) {
 	}
 }
 
-func handleList(client *http.Client) {
+func execList(client *http.Client) {
 	list, err := GetPeers(client)
 	if err != nil {
 		fmt.Println("Error getPeers http :", err.Error())
@@ -272,52 +273,48 @@ func handleList(client *http.Client) {
 
 // TODO: Tous les handler devrait renvoyait un booléen, ou un erreur pour savoir si tout c'est bien passé
 // ! Neccessaire pour le gui !
-func handleSendHello(client *http.Client, conn net.PacketConn, words []string) {
+func execSendHello(client *http.Client, conn net.PacketConn, words []string) error {
 	if len(words) != 2 {
-		fmt.Println("Wrong number of argument !")
-		return
+		return errors.New("Wrong number of argument !")
 	}
 
 	addrs_peer, err := GetAddresses(client, words[1])
 	if err != nil {
-		fmt.Println("Error while fetching peer's addresses")
-		return
+		return errors.New("Error while fetching peer's addresses")
 	}
 
 	for i := 0; i < len(addrs_peer); i++ {
 		addr, err := net.ResolveUDPAddr("udp", addrs_peer[i])
 		if err != nil {
-			fmt.Println("Error resolve addr", err.Error())
-			return
+			return err
 		}
-		_, err = sendHello(conn, addr, username)
+		_, err = sendHello(conn, addr, username, true)
 
 		if err != nil {
-			fmt.Println("Error send hello :", err.Error())
-			return
+			return err
 		}
 	}
+
+	return nil
 }
 
-func handleGetData(client *http.Client, conn net.PacketConn, words []string) *Peer {
+func execGetData(client *http.Client, conn net.PacketConn, words []string) (*Peer, error) {
 	if len(words) != 2 {
-		fmt.Println("Wrong number of argument !")
-		return nil
+		return nil, errors.New("Wrong number of argument !")
 	}
-	//TODO: SendHello test la reponse
-	handleSendHello(client, conn, words)
 
+	cache_peers.mutex.Lock()
 	index := FindCachedPeerByName(words[1])
 	if index == -1 {
-		fmt.Println("Peer not found")
-		return nil
+		execSendHello(client, conn, words)
+		index = FindCachedPeerByName(words[1])
 	}
-
 	p := &cache_peers.list[index]
+	cache_peers.mutex.Unlock()
+
 	hash, err := GetRoot(client, p.Name)
 	if err != nil {
-		fmt.Println("Error getRoot :", err.Error())
-		return nil
+		return nil, err
 	}
 
 	if p.Root == nil || [32]byte(hash) != p.Root.Hash {
@@ -327,53 +324,46 @@ func handleGetData(client *http.Client, conn net.PacketConn, words []string) *Pe
 	}
 
 	PrintNode(p.Root, "")
-	return p
+	return p, nil
 }
 
-func handleGetDataDL(client *http.Client, conn net.PacketConn, words []string) {
+func execGetDataDL(client *http.Client, conn net.PacketConn, words []string) error {
 	if len(words) != 2 && len(words) != 3 {
-		fmt.Println("Wrong number of argument !")
-		return
+		return errors.New("Wrong number of argument !")
 	}
-	//TODO: SendHello test la reponse
-	handleSendHello(client, conn, []string{"hello", words[1]})
 
+	cache_peers.mutex.Lock()
 	index := FindCachedPeerByName(words[1])
 	if index == -1 {
-		fmt.Println("Peer not found")
-		return
+		execSendHello(client, conn, words)
+		index = FindCachedPeerByName(words[1])
 	}
-
 	p := &cache_peers.list[index]
+	cache_peers.mutex.Unlock()
 
 	hash, err := GetRoot(client, p.Name)
 	if err != nil {
-		fmt.Println("Error getRoot :", err.Error())
-		return
+		return err
 	}
 
 	if p.Root == nil || p.Root.Hash != [32]byte(hash) {
-		fmt.Println("Update du tree ! (Relancer le download)")
 		p.Root = BuildNode(p.Name, [32]byte(hash), DIRECTORY)
 		explore(conn, p)
 		PrintNode(p.Root, "")
-		return
+		return errors.New("Tree has been updated. Please reboot the download")
 	}
 
 	if len(words) == 3 {
 		path := strings.Split(words[2], "/")
 		start_hash, err := FindPath(p.Root, path[1:])
 		if err != nil {
-			fmt.Println("Error FindPath :", err.Error())
-			return
+			return err
 		}
 		if len(path) > 1 {
 			real_path := strings.Join(path[:len(path)-1], "/")
-			fmt.Println("Real path :", real_path)
 			err = os.MkdirAll(real_path, os.ModePerm)
 			if err != nil {
-				fmt.Println("Error mkdir all handle dl :", err.Error())
-				return
+				return err
 			}
 		}
 		download_multi(conn, p, start_hash, strings.Join(path, "/"))
@@ -382,25 +372,23 @@ func handleGetDataDL(client *http.Client, conn net.PacketConn, words []string) {
 	}
 
 	fmt.Println("END !")
+	return nil
 }
 
-func treatExport(conn net.PacketConn, words []string) {
+func execExport(conn net.PacketConn, words []string) error {
 	if len(words) != 2 {
-		fmt.Println("Wrong number of argument !")
-		return
+		return errors.New("Wrong number of argument !")
 	}
 
 	err := export(words[1])
 	if err != nil {
-		fmt.Println("[treatExport] ", err.Error())
-		return
+		return err
 	}
 
 	err = sendRoot(conn)
 	if err != nil {
-		fmt.Println("[treatExport] ", err.Error())
-		return
+		return err
 	}
 
-	return
+	return nil
 }

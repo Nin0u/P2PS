@@ -258,7 +258,7 @@ func HandleNatTraversal(conn net.PacketConn, message []byte, nb_byte int, addr_s
 		return
 	}
 
-	sendHello(conn, addr_dest, username)
+	sendHello(conn, addr_dest, username, false)
 }
 
 func HandleRootReply(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {

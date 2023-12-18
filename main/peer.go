@@ -101,14 +101,11 @@ func removeCachedPeer(index int) {
 }
 
 func FindCachedPeerByName(name string) int {
-	cache_peers.mutex.Lock()
 	for i := 0; i < len(cache_peers.list); i++ {
 		if cache_peers.list[i].Name == name {
-			cache_peers.mutex.Unlock()
 			return i
 		}
 	}
-	cache_peers.mutex.Unlock()
 	return -1
 }
 

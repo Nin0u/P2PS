@@ -57,7 +57,7 @@ func ConnKeeper(client *http.Client, conn net.PacketConn, addr []net.Addr) {
 	for {
 		time.Sleep(sleep_time)
 		for i := 0; i < len(addr); i++ {
-			code, err := sendHello(conn, addr[i], username)
+			code, err := sendHello(conn, addr[i], username, false)
 			if err != nil {
 				fmt.Println("[ConnKeeper] Error while sending hello to ", addr[i], ":", err.Error())
 				if code != -1 {

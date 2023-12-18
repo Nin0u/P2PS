@@ -78,7 +78,8 @@ func handlePeerData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println("PeerName :", m.PeerName)
-	handleGetData(clientG, connG, []string{"data", m.PeerName})
+	// TODO use errors
+	execGetData(clientG, connG, []string{"data", m.PeerName})
 
 	index := FindCachedPeerByName(m.PeerName)
 	cache_peers.mutex.Lock()
@@ -107,7 +108,8 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		break
 	}
 	fmt.Println("PATH", m.Path)
-	handleGetDataDL(clientG, connG, []string{"data_dl", m.PeerName, m.Path})
+	// TODO : use error
+	execGetDataDL(clientG, connG, []string{"data_dl", m.PeerName, m.Path})
 }
 
 func gui(client *http.Client, conn net.PacketConn) {
