@@ -293,30 +293,27 @@ func handleSendHello(client *http.Client, conn net.PacketConn, words []string) {
 	}
 }
 
-func handleGetData(client *http.Client, conn net.PacketConn, words []string) {
+func handleGetData(client *http.Client, conn net.PacketConn, words []string) *Peer {
 	if len(words) != 2 {
 		fmt.Println("Wrong number of argument !")
-		return
+		return nil
 	}
 	//TODO: SendHello
+	handleSendHello(client, conn, words)
 
 	index := FindCachedPeerByName(words[1])
 	if index == -1 {
 		fmt.Println("Peer not found")
-		return
+		return nil
 	}
 
 	p := &cache_peers.list[index]
 	hash, err := GetRoot(client, p.Name)
 	if err != nil {
 		fmt.Println("Error getRoot :", err.Error())
-		return
+		return nil
 	}
 
-	fmt.Println("Hash GetRoot =", hash)
-	if p.Root != nil {
-		fmt.Println("Hash Root    =", p.Root.Hash)
-	}
 	if p.Root == nil || [32]byte(hash) != p.Root.Hash {
 		fmt.Println("(Re)explore")
 		p.Root = BuildNode(p.Name, [32]byte(hash), DIRECTORY)
@@ -324,6 +321,7 @@ func handleGetData(client *http.Client, conn net.PacketConn, words []string) {
 	}
 
 	PrintNode(p.Root, "")
+	return p
 }
 
 func handleGetDataDL(client *http.Client, conn net.PacketConn, words []string) {

@@ -146,5 +146,6 @@ func main() {
 	fmt.Println(conn.LocalAddr().String())
 
 	go Recv(client, conn)
+	go gui(client, conn)
 	cli(client, conn)
 }
