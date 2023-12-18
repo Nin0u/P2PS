@@ -271,16 +271,14 @@ func execList(client *http.Client) {
 	}
 }
 
-// TODO: Tous les handler devrait renvoyait un booléen, ou un erreur pour savoir si tout c'est bien passé
-// ! Neccessaire pour le gui !
 func execSendHello(client *http.Client, conn net.PacketConn, words []string) error {
 	if len(words) != 2 {
-		return errors.New("Wrong number of argument !")
+		return errors.New("wrong number of argument")
 	}
 
 	addrs_peer, err := GetAddresses(client, words[1])
 	if err != nil {
-		return errors.New("Error while fetching peer's addresses")
+		return errors.New("error while fetching peer's addresses")
 	}
 
 	for i := 0; i < len(addrs_peer); i++ {
@@ -300,7 +298,7 @@ func execSendHello(client *http.Client, conn net.PacketConn, words []string) err
 
 func execGetData(client *http.Client, conn net.PacketConn, words []string) (*Peer, error) {
 	if len(words) != 2 {
-		return nil, errors.New("Wrong number of argument !")
+		return nil, errors.New("wrong number of argument")
 	}
 
 	cache_peers.mutex.Lock()
@@ -308,6 +306,9 @@ func execGetData(client *http.Client, conn net.PacketConn, words []string) (*Pee
 	if index == -1 {
 		execSendHello(client, conn, words)
 		index = FindCachedPeerByName(words[1])
+		if index == -1 {
+			return nil, errors.New("peer not found")
+		}
 	}
 	p := &cache_peers.list[index]
 	cache_peers.mutex.Unlock()
@@ -329,7 +330,7 @@ func execGetData(client *http.Client, conn net.PacketConn, words []string) (*Pee
 
 func execGetDataDL(client *http.Client, conn net.PacketConn, words []string) error {
 	if len(words) != 2 && len(words) != 3 {
-		return errors.New("Wrong number of argument !")
+		return errors.New("wrong number of argument")
 	}
 
 	cache_peers.mutex.Lock()
@@ -337,6 +338,9 @@ func execGetDataDL(client *http.Client, conn net.PacketConn, words []string) err
 	if index == -1 {
 		execSendHello(client, conn, words)
 		index = FindCachedPeerByName(words[1])
+		if index == -1 {
+			return errors.New("peer not found")
+		}
 	}
 	p := &cache_peers.list[index]
 	cache_peers.mutex.Unlock()
@@ -377,7 +381,7 @@ func execGetDataDL(client *http.Client, conn net.PacketConn, words []string) err
 
 func execExport(conn net.PacketConn, words []string) error {
 	if len(words) != 2 {
-		return errors.New("Wrong number of argument !")
+		return errors.New("wrong number of argument")
 	}
 
 	err := export(words[1])

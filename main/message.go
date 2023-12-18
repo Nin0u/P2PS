@@ -374,7 +374,7 @@ func sendRoot(conn net.PacketConn) error {
 	index := FindCachedPeerByName(server_name_peer)
 	if index == -1 {
 		fmt.Print("[sendRoot] Error finding server name")
-		return errors.New("Error sendRoot finding server name")
+		return errors.New("sendRoot finding server name")
 	}
 	addrs_server := cache_peers.list[index].Addr
 	cache_peers.mutex.Unlock()
