@@ -15,6 +15,7 @@ var debug bool = false
 var username string = ""
 
 var timeout_datum_clear, _ = time.ParseDuration("30s") // TODO : à adapter
+var sleep_time, _ = time.ParseDuration("30s")          // TODO : à adapter
 
 var DatumCacheClearer = sync.OnceFunc(func() {
 	fmt.Println("DatumCacheClearer Called")
@@ -22,7 +23,6 @@ var DatumCacheClearer = sync.OnceFunc(func() {
 })
 
 func PeerClearer() {
-	sleep_time, _ := time.ParseDuration("30s") // TODO : A adapter peut-être
 	for {
 		time.Sleep(sleep_time)
 		current_time := time.Now()
@@ -37,7 +37,7 @@ func PeerClearer() {
 }
 
 func datumCacheClearer() {
-	sleep_time, _ := time.ParseDuration("30s") // TODO : A adapter peut-être
+	sleep_time, _ := time.ParseDuration("30s")
 	for {
 		time.Sleep(sleep_time)
 		current_time := time.Now()

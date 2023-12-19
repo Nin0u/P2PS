@@ -99,6 +99,13 @@ func VerifySignature(key []byte, data []byte, signature []byte) bool {
 		return true
 	}
 
+	if len(signature) == 0 {
+		if debug_signature {
+			fmt.Println("[VerifySignature] Peer has a key but message is not signed")
+		}
+		return false
+	}
+
 	if debug_signature {
 		fmt.Printf("[VerifySignature] Verifying signature %x on data %x with key %x\n", signature, data, key)
 	}
