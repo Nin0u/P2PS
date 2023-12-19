@@ -7,7 +7,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/sqweek/dialog"
+	"github.com/ncruces/zenity"
 )
 
 var clientG *http.Client
@@ -44,8 +44,8 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		fmt.Println("Error on handleExport :", r.Method)
 	}
-	filename, _ := dialog.File().Load()
-	fmt.Println(filename)
+	path, _ := zenity.SelectFile(zenity.Filename("~"), zenity.Directory())
+	fmt.Println(path)
 }
 
 func handlePeer(w http.ResponseWriter, r *http.Request) {
