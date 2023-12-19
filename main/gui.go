@@ -46,6 +46,7 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 	}
 	path, _ := zenity.SelectFile(zenity.Filename("~"), zenity.Directory())
 	fmt.Println(path)
+	execExport(connG, []string{"export", path})
 }
 
 func handlePeer(w http.ResponseWriter, r *http.Request) {
