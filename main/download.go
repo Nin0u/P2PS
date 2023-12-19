@@ -256,7 +256,7 @@ func download_multi_aux(conn net.PacketConn, req *RequestDatum, p *Peer) []Reque
 }
 
 func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path string) {
-	const max_request = 512
+	const max_request = 32
 
 	reqDatum := make([]RequestDatum, 0)
 	reqDatum = append(reqDatum, buildRequestDatum(start_path, first_hash, 0))
