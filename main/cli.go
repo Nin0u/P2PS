@@ -276,21 +276,30 @@ func execSendHello(client *http.Client, conn net.PacketConn, words []string) err
 		return errors.New("wrong number of argument")
 	}
 
-	addrs_peer, err := GetAddresses(client, words[1])
-	if err != nil {
-		return errors.New("error while fetching peer's addresses")
-	}
-
+	addrs_peer, err1 := GetAddresses(client, words[1])
+	var err2 error
+	var err3 error
 	for i := 0; i < len(addrs_peer); i++ {
 		addr, err := net.ResolveUDPAddr("udp", addrs_peer[i])
 		if err != nil {
-			return err
+			err2 = err
 		}
-		_, err = sendHello(conn, addr, username, true)
 
+		_, err = sendHello(conn, addr, username, true)
 		if err != nil {
-			return err
+			err3 = err
 		}
+	}
+
+	if err1 != nil {
+		return err1
+	}
+	if err2 != nil {
+		return err2
+	}
+
+	if err3 != nil {
+		return err3
 	}
 
 	return nil
