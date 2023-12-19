@@ -159,6 +159,7 @@ func export(path string) error {
 		hashhash = append(hashhash, rootExport.Hash[:]...)
 		hash := sha256.Sum256(hashhash)
 		node := buildExportNode("", hash, 0, DIRECTORY)
+		node.Children = append(node.Children, rootExport)
 		rootExport = node
 	}
 
