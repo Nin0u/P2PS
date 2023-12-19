@@ -308,6 +308,7 @@ func execGetData(client *http.Client, conn net.PacketConn, words []string) (*Pee
 		execSendHello(client, conn, words)
 		index = FindCachedPeerByName(words[1])
 		if index == -1 {
+			cache_peers.mutex.Unlock()
 			return nil, errors.New("peer not found")
 		}
 	}
@@ -340,6 +341,7 @@ func execGetDataDL(client *http.Client, conn net.PacketConn, words []string) err
 		execSendHello(client, conn, words)
 		index = FindCachedPeerByName(words[1])
 		if index == -1 {
+			cache_peers.mutex.Unlock()
 			return errors.New("peer not found")
 		}
 	}
