@@ -135,7 +135,7 @@ func start(client *http.Client, conn net.PacketConn) {
 		addr, err := net.ResolveUDPAddr("udp", addr_list[i])
 		if err != nil {
 			fmt.Println("Error resolve addr", err.Error())
-			return
+			continue
 		}
 
 		_, err = sendHello(conn, addr, username, false)
@@ -148,7 +148,7 @@ func start(client *http.Client, conn net.PacketConn) {
 	}
 
 	if len(conkeeper_addrs) == 0 {
-		fmt.Println("ERROR : No addresses for the server.")
+		fmt.Println("ERROR : No valid address for the server.")
 		return
 	}
 
@@ -304,14 +304,18 @@ func execGetData(client *http.Client, conn net.PacketConn, words []string) (*Pee
 
 	cache_peers.mutex.Lock()
 	index := FindCachedPeerByName(words[1])
+	cache_peers.mutex.Unlock()
 	if index == -1 {
 		execSendHello(client, conn, words)
+		cache_peers.mutex.Lock()
 		index = FindCachedPeerByName(words[1])
+		cache_peers.mutex.Unlock()
+
 		if index == -1 {
-			cache_peers.mutex.Unlock()
 			return nil, errors.New("peer not found")
 		}
 	}
+	cache_peers.mutex.Lock()
 	p := &cache_peers.list[index]
 	cache_peers.mutex.Unlock()
 
@@ -337,14 +341,19 @@ func execGetDataDL(client *http.Client, conn net.PacketConn, words []string) err
 
 	cache_peers.mutex.Lock()
 	index := FindCachedPeerByName(words[1])
+	cache_peers.mutex.Unlock()
 	if index == -1 {
 		execSendHello(client, conn, words)
+		cache_peers.mutex.Lock()
 		index = FindCachedPeerByName(words[1])
+		cache_peers.mutex.Unlock()
+
 		if index == -1 {
-			cache_peers.mutex.Unlock()
 			return errors.New("peer not found")
 		}
 	}
+
+	cache_peers.mutex.Lock()
 	p := &cache_peers.list[index]
 	cache_peers.mutex.Unlock()
 

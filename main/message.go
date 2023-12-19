@@ -69,6 +69,10 @@ func (m *Message) build() []byte {
 	return message
 }
 
+func (m *Message) print() {
+	fmt.Printf("Id = %d, Type = %b, Len = %d, Body = %x, Sign = %x\n", m.Id, m.Type, m.Length, m.Body, m.Signature)
+}
+
 func getID(m []byte) int32 {
 	return int32(m[0])<<24 + int32(m[1])<<16 + int32(m[2])<<8 + int32(m[3])
 }
@@ -99,7 +103,8 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string, send_NT bool) (i
 	sign := computeSignature(message.build())
 	message.Signature = sign
 	if debug_message {
-		fmt.Printf("[sendHello] Hello : %x\n", message.build())
+		fmt.Printf("[sendHello] Hello : ")
+		message.print()
 	}
 
 	n, err := sync_map.Reemit(conn, addr, &message, message.Id, 3)
@@ -147,7 +152,8 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 	message.Signature = sign
 
 	if debug_message {
-		fmt.Printf("[sendHelloReply] HelloReply : %x\n", message.build())
+		fmt.Printf("[sendHelloReply] HelloReply : ")
+		message.print()
 	}
 
 	_, err := conn.WriteTo(message.build(), addr)
@@ -173,7 +179,8 @@ func sendPublicKeyReply(conn net.PacketConn, addr net.Addr, id int32) (int32, er
 	message.Signature = sign
 
 	if debug_message {
-		fmt.Printf("[sendPublicKeyReply] PublicKeyReply : %x\n", message.build())
+		fmt.Printf("[sendPublicKeyReply] PublicKeyReply : ")
+		message.print()
 	}
 
 	_, err := conn.WriteTo(message.build(), addr)
@@ -205,7 +212,8 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) 
 	message.Signature = sign
 
 	if debug_message {
-		fmt.Printf("[sendRootReply] RootReply : %x\n", message.build())
+		fmt.Printf("[sendRootReply] RootReply : ")
+		message.print()
 	}
 
 	_, err := conn.WriteTo(message.build(), addr)
@@ -228,8 +236,9 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 
 	copy(message.Body[:], hash[:])
 
-	if debug {
-		fmt.Printf("[sendGetDatum] GetDatum : %x\n", message.build())
+	if debug_message {
+		fmt.Printf("[sendGetDatum] GetDatum : ")
+		message.print()
 	}
 
 	return sync_map.Reemit(conn, addr, &message, message.Id, 5)
@@ -250,7 +259,8 @@ func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (i
 	copy(message.Body[:], hash[:])
 
 	if debug_message {
-		fmt.Printf("[sendNoDatum] NoDatum : %x\n", message.build())
+		fmt.Printf("[sendNoDatum] NoDatum : ")
+		message.print()
 	}
 
 	_, err := conn.WriteTo(message.build(), addr)
@@ -309,17 +319,18 @@ func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node
 }
 
 func sendAllNatRequest(conn net.PacketConn, addr_peer net.Addr) (int, error) {
+	addrs_server := make([]net.Addr, 0)
+
 	cache_peers.mutex.Lock()
 	index := FindCachedPeerByName(server_name_peer)
-	cache_peers.mutex.Unlock()
-
-	addrs_server := make([]net.Addr, 0)
-	cache_peers.mutex.Lock()
-	for i := 0; i < len(cache_peers.list); i++ {
+	for i := 0; i < len(cache_peers.list[index].Addr); i++ {
 		addrs_server = append(addrs_server, cache_peers.list[index].Addr[i])
 	}
 	cache_peers.mutex.Unlock()
+
 	for i := 0; i < len(addrs_server); i++ {
+		fmt.Println("[sendAllNatRequest] Sending a NAT Request")
+
 		_, err := sendNatRequest(conn, addr_peer, addrs_server[i])
 		if err != nil {
 			fmt.Println("[sendAllNatRequest] Error :", err)
@@ -351,6 +362,11 @@ func sendNatRequest(conn net.PacketConn, addr_peer net.Addr, addr_server net.Add
 	message.Body = append(message.Body, byte(port>>8%(1<<8)))
 	message.Body = append(message.Body, byte(port%(1<<8)))
 	message.Length = uint16(len(message.Body))
+
+	if debug_message {
+		fmt.Printf("[sendNatRequest] NatRequest : ")
+		message.print()
+	}
 
 	return nat_sync_map.Reemit(conn, addr_server, &message, addr_peer, 3)
 }

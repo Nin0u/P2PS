@@ -66,6 +66,7 @@ func ConnKeeper(client *http.Client, conn net.PacketConn, addr []net.Addr) {
 
 					if len(addr) == 0 {
 						fmt.Println("ERROR : No more addresses for the server. Closing ConnKeeper.")
+						return
 					}
 				}
 			}
@@ -147,7 +148,7 @@ func Recv(client *http.Client, conn net.PacketConn) {
 }
 
 func main() {
-	var path string
+	path := ""
 
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
@@ -166,8 +167,8 @@ func main() {
 				fmt.Println("Username should not be empty !")
 				return
 			}
-		} else if args[i][:8] == "--export=" {
-			p := strings.Trim(args[i][8:], " ")
+		} else if args[i][:9] == "--export=" {
+			p := strings.Trim(args[i][9:], " ")
 			if len(p) != 0 {
 				path = p
 			}
