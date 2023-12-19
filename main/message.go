@@ -105,11 +105,11 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string, send_NT bool) (i
 	n, err := sync_map.Reemit(conn, addr, &message, message.Id, 3)
 	if err != nil {
 		if n == -1 {
-			if debug_message {
-				fmt.Println("[sendHello] reemit timeout proceed to NatTraversal")
-			}
-
 			if send_NT {
+				if debug_message {
+					fmt.Println("[sendHello] reemit timeout proceed to NatTraversal")
+				}
+
 				// Message is not reliable. Have to reemit the NATTraversal until it's ok
 				return sendAllNatRequest(conn, addr)
 			}
