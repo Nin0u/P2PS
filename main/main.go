@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -146,7 +147,7 @@ func Recv(client *http.Client, conn net.PacketConn) {
 }
 
 func main() {
-	export("./Test")
+	var path string
 
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
@@ -157,8 +158,23 @@ func main() {
 			debug_handler = true
 			debug_message = true
 			debug_signature = true
+		} else if args[i][:11] == "--username=" {
+			name := strings.Trim(args[i][11:], " ")
+			if len(name) != 0 {
+				username = name
+			} else {
+				fmt.Println("Username should not be empty !")
+				return
+			}
+		} else if args[i][:8] == "--export=" {
+			p := strings.Trim(args[i][8:], " ")
+			if len(p) != 0 {
+				path = p
+			}
 		}
 	}
+
+	export(path)
 	GenKeys()
 
 	transport := http.DefaultTransport.(*http.Transport)

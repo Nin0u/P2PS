@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"net"
@@ -187,13 +186,6 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 }
 
 func cli(client *http.Client, conn net.PacketConn) {
-	sc := bufio.NewScanner(os.Stdin)
-
-	fmt.Print("Please enter your username : ")
-	if sc.Scan() {
-		username = sc.Text()
-	}
-
 	title_print()
 	fmt.Println()
 	print_help()
