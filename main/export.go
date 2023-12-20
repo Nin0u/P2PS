@@ -139,7 +139,7 @@ func export(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		fmt.Println("[Export] Error stat", path, err.Error())
-		return errors.New("No such file")
+		return errors.New("no such file")
 	}
 
 	//We throw the older map

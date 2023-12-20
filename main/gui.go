@@ -51,6 +51,10 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 
 func handlePeer(w http.ResponseWriter, r *http.Request) {
 	list, err := GetPeers(clientG)
+	if err != nil {
+		// TODO : renvoyer un truc à la page
+		fmt.Print("TODO")
+	}
 
 	peerMsg := PeerMsg{List: list[:]}
 
@@ -68,14 +72,13 @@ func handlePeerData(w http.ResponseWriter, r *http.Request) {
 
 	dec := json.NewDecoder(r.Body)
 	var m PeerDLMsg
-	for dec.More() {
+	if dec.More() {
 		err := dec.Decode(&m)
 		if err != nil {
 			fmt.Println("Error decode", err.Error())
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		break
 	}
 
 	fmt.Println("PeerName :", m.PeerName)
@@ -99,14 +102,13 @@ func handlePeerData(w http.ResponseWriter, r *http.Request) {
 func handleDownload(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	var m DLMsg
-	for dec.More() {
+	if dec.More() {
 		err := dec.Decode(&m)
 		if err != nil {
 			fmt.Println("Error decode", err.Error())
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		break
 	}
 	fmt.Println("PATH", m.Path)
 	// TODO : use error
