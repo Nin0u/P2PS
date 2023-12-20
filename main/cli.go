@@ -35,8 +35,6 @@ const prompt string = "$> "
 
 var input_cursor int = 0
 
-var server_name_peer string = "jch.irif.fr"
-
 func AddCommandHistory(content string) {
 	command_history = append(command_history, content)
 	if len(command_history) >= history_max_size {
@@ -128,8 +126,6 @@ func start(client *http.Client, conn net.PacketConn) {
 		return
 	}
 
-	conkeeper_addrs := make([]net.Addr, 0)
-
 	// Check if all the addresses work by sending hello to each of them
 	for i := 0; i < len(addr_list); i++ {
 		addr, err := net.ResolveUDPAddr("udp", addr_list[i])
@@ -138,21 +134,14 @@ func start(client *http.Client, conn net.PacketConn) {
 			continue
 		}
 
-		_, err = sendHello(conn, addr, username, false)
+		err = sendHello(conn, addr, username, false)
 		if err != nil {
 			fmt.Println("Error send hello :", err.Error())
 			continue
 		}
-
-		conkeeper_addrs = append(conkeeper_addrs, addr)
 	}
 
-	if len(conkeeper_addrs) == 0 {
-		fmt.Println("ERROR : No valid address for the server.")
-		return
-	}
-
-	go ConnKeeper(client, conn, conkeeper_addrs)
+	go ConnKeeper(client, conn)
 	go PeerClearer()
 }
 
@@ -292,7 +281,7 @@ func execSendHello(client *http.Client, conn net.PacketConn, words []string) err
 			err2 = err
 		}
 
-		_, err = sendHello(conn, addr, username, true)
+		err = sendHello(conn, addr, username, true)
 		if err != nil {
 			err3 = err
 		}

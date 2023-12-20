@@ -99,5 +99,5 @@ func (this *SyncMap[K]) Reemit(conn net.PacketConn, addr net.Addr, message *Mess
 	// If someone do a wg.done() before -> we have received the packet and have timeout, it's weird but acceptable
 	this.Unblock(key)
 
-	return -1, errors.New("\n[reemit] Timeout exceeded")
+	return -1, errors.New("\n timeout exceeded")
 }

@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+
+	"github.com/fatih/color"
 )
 
 // Data type
@@ -163,7 +165,7 @@ func HandleError(message []byte, error_label string) {
 		fmt.Println(error_label, "Triggered")
 	}
 	len := getLength(message)
-	fmt.Println(error_label, ":", string(message[7:7+len]))
+	color.Cyan("%s : %s\n", error_label, string(message[7:7+len]))
 }
 
 func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.PacketConn) {

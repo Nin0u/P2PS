@@ -11,7 +11,7 @@ import (
 )
 
 const server string = "https://jch.irif.fr:8443/"
-const peers string = "peers/"
+const server_name_peer string = "jch.irif.fr"
 
 var debug_rest bool = false
 
@@ -38,7 +38,7 @@ func GetPeers(c *http.Client) ([]string, error) {
 		fmt.Println("[GetPeers] Calling getRequest")
 	}
 
-	res, err := getRequest(c, server+peers)
+	res, err := getRequest(c, server+"peers/")
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func GetAddresses(c *http.Client, peer string) ([]string, error) {
 		fmt.Println("[GetAddresses] Calling getRequest")
 	}
 
-	res, err := getRequest(c, server+peers+peer+"/addresses")
+	res, err := getRequest(c, server+"peers/"+peer+"/addresses")
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func GetKey(c *http.Client, peer string) ([]byte, error) {
 		fmt.Println("[GetKey] Calling getRequest")
 	}
 
-	res, err := getRequest(c, server+peers+peer+"/key")
+	res, err := getRequest(c, server+"peers/"+peer+"/key")
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func GetRoot(c *http.Client, peer string) ([]byte, error) {
 		fmt.Println("[GetRoot] Calling getRequest")
 	}
 
-	res, err := getRequest(c, server+peers+peer+"/root")
+	res, err := getRequest(c, server+"peers/"+peer+"/root")
 	if err != nil {
 		return nil, err
 	}

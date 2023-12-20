@@ -9,8 +9,24 @@ import (
 	"net/netip"
 	"os"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/fatih/color"
 )
+
+type Id struct {
+	mutex      sync.Mutex
+	current_id int32
+}
+
+func (id *Id) get() int32 {
+	id.mutex.Lock()
+	ret := id.current_id
+	id.current_id++
+	id.mutex.Unlock()
+	return ret
+}
 
 type Message struct {
 	Id        int32
@@ -85,7 +101,7 @@ func getLength(m []byte) uint16 {
 	return uint16(m[5])<<8 + uint16(m[6])
 }
 
-func sendHello(conn net.PacketConn, addr net.Addr, name string, send_NT bool) (int, error) {
+func sendHello(conn net.PacketConn, addr net.Addr, name string, send_NT bool) error {
 	if debug_message {
 		fmt.Println("[sendHello] Called")
 	}
@@ -109,29 +125,30 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string, send_NT bool) (i
 
 	n, err := sync_map.Reemit(conn, addr, &message, message.Id, 3)
 	if err != nil {
+		// n = -1 if the reemit timed out. Then we send (or not) a NatTraversal
 		if n == -1 {
 			if send_NT {
 				if debug_message {
-					fmt.Println("[sendHello] reemit timeout proceed to NatTraversal")
+					color.Magenta("[sendHello] reemit timeout proceed to NatTraversal\n")
 				}
 
 				// Message is not reliable. Have to reemit the NATTraversal until it's ok
 				return sendAllNatRequest(conn, addr)
 			}
 
-			return -1, err
+			return err
 		} else {
 			if debug_message {
-				fmt.Println("[sendHello] Error :", err)
+				color.Red("[sendHello] Error : %s\n", err.Error())
 			}
 		}
 	}
 
 	if debug_message {
-		fmt.Printf("[sendHello] message sent after %d tries\n", n)
+		fmt.Printf("[sendHello] message sent after %d tries\n", n+1)
 	}
 
-	return 0, nil
+	return nil
 }
 
 func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (int32, error) {
@@ -198,16 +215,16 @@ func sendRootReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) 
 		Length: 32,
 		Body:   make([]byte, 32),
 	}
-	hash := [32]byte{}
+
 	map_export.Mutex.Lock()
 	if rootExport == nil {
-		hash = sha256.Sum256([]byte(""))
+		hash := sha256.Sum256([]byte(""))
+		copy(message.Body[:], hash[:])
 	} else {
-		hash = rootExport.Hash
+		copy(message.Body[:], rootExport.Hash[:])
 	}
 	map_export.Mutex.Unlock()
 
-	message.Body = hash[:]
 	sign := computeSignature(message.build())
 	message.Signature = sign
 
@@ -227,7 +244,7 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 		Type:    GetDatum,
 		Length:  32,
 		Body:    make([]byte, 32),
-		Timeout: time.Second * 1, //time.Millisecond * 10,
+		Timeout: time.Second,
 	}
 
 	if debug_message {
@@ -235,11 +252,6 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 	}
 
 	copy(message.Body[:], hash[:])
-
-	if debug_message {
-		fmt.Printf("[sendGetDatum] GetDatum : ")
-		message.print()
-	}
 
 	return sync_map.Reemit(conn, addr, &message, message.Id, 5)
 }
@@ -267,6 +279,8 @@ func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (i
 	return message.Id, err
 }
 
+// TODO : Ajouter name dans export et ne plus faire le strings.split car c'est source d'erreur
+// TODO : Verrou sur la map export (handleDatum) ???
 func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node *ExportNode) (int32, error) {
 	if debug_message {
 		fmt.Println("[sendDatum] Called")
@@ -300,13 +314,13 @@ func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node
 	} else {
 		file, err := os.OpenFile(node.Path, os.O_RDONLY, os.ModePerm)
 		if err != nil {
-			fmt.Println("[sendDatum] Error open chunk", node.Path, err.Error())
+			color.Red("[sendDatum] Error open chunk %s : %s\n", node.Path, err.Error())
 			return -1, err
 		}
 		chunk := make([]byte, 1024)
 		n, err := file.ReadAt(chunk, node.Num)
 		if err != nil && err != io.EOF {
-			fmt.Println("[sendDatum] Error read chunk", node.Path, err.Error())
+			color.Red("[sendDatum] Error read chunk %s : %s\n", node.Path, err.Error())
 			return -1, err
 		}
 
@@ -318,26 +332,40 @@ func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node
 	return message.Id, err
 }
 
-func sendAllNatRequest(conn net.PacketConn, addr_peer net.Addr) (int, error) {
-	addrs_server := make([]net.Addr, 0)
-
+func GetServerAddrs() ([]net.Addr, error) {
 	cache_peers.mutex.Lock()
 	index := FindCachedPeerByName(server_name_peer)
-	for i := 0; i < len(cache_peers.list[index].Addr); i++ {
-		addrs_server = append(addrs_server, cache_peers.list[index].Addr[i])
+	if index == -1 {
+		color.Red("[getServerAddrs] Error finding server name")
+		cache_peers.mutex.Unlock()
+		// TODO : regarder si -1 ok avec execsendhello
+		return nil, errors.New("finding server name")
 	}
+	addrs_server := make([]net.Addr, len(cache_peers.list[index].Addr))
+	copy(addrs_server, cache_peers.list[index].Addr)
 	cache_peers.mutex.Unlock()
 
+	return addrs_server, nil
+}
+
+func sendAllNatRequest(conn net.PacketConn, addr_peer net.Addr) error {
+	addrs_server, err := GetServerAddrs()
+	if err != nil {
+		return err
+	}
+
+	var e error = nil
 	for i := 0; i < len(addrs_server); i++ {
 		fmt.Println("[sendAllNatRequest] Sending a NAT Request")
 
 		_, err := sendNatRequest(conn, addr_peer, addrs_server[i])
 		if err != nil {
-			fmt.Println("[sendAllNatRequest] Error :", err)
+			e = err
+			color.Red("[sendAllNatRequest] Error : %s\n", err.Error())
 		}
 	}
 
-	return 0, nil
+	return e
 }
 
 func sendNatRequest(conn net.PacketConn, addr_peer net.Addr, addr_server net.Addr) (int, error) {
@@ -351,8 +379,8 @@ func sendNatRequest(conn net.PacketConn, addr_peer net.Addr, addr_server net.Add
 
 	ip, err := netip.ParseAddrPort(addr_peer.String())
 	if err != nil {
-		fmt.Println("[sendNatRequest] Error parse addr :", err.Error())
-		return -1, nil
+		color.Red("[sendNatRequest] Error parse addr : %s\n", err.Error())
+		return -1, err
 	}
 
 	ip_byte := ip.Addr().AsSlice()
@@ -372,29 +400,27 @@ func sendNatRequest(conn net.PacketConn, addr_peer net.Addr, addr_server net.Add
 }
 
 func sendRoot(conn net.PacketConn) error {
-	map_export.Mutex.Lock()
 	message := Message{
 		Id:      id.get(),
 		Type:    Root,
-		Body:    rootExport.Hash[:],
+		Body:    make([]byte, 32),
 		Length:  32,
 		Timeout: time.Second,
 	}
+
+	map_export.Mutex.Lock()
+	copy(message.Body, rootExport.Hash[:])
 	map_export.Mutex.Unlock()
 
 	if debug_message {
-		fmt.Printf("[sendRootReply] RootReply : %x\n", message.build())
+		fmt.Print("[sendRoot] Root :")
+		message.print()
 	}
 
-	cache_peers.mutex.Lock()
-	index := FindCachedPeerByName(server_name_peer)
-	if index == -1 {
-		fmt.Print("[sendRoot] Error finding server name")
-		cache_peers.mutex.Unlock()
-		return errors.New("sendRoot finding server name")
+	addrs_server, err := GetServerAddrs()
+	if err != nil {
+		return err
 	}
-	addrs_server := cache_peers.list[index].Addr
-	cache_peers.mutex.Unlock()
 
 	sign := computeSignature(message.build())
 	message.Signature = sign
@@ -402,7 +428,7 @@ func sendRoot(conn net.PacketConn) error {
 	for i := 0; i < len(addrs_server); i++ {
 		_, err := sync_map.Reemit(conn, addrs_server[i], &message, message.Id, 3)
 		if err != nil {
-			fmt.Println("[SendRoot] Error :", err)
+			color.Red("[SendRoot] Error : %s\n", err.Error())
 			return err
 		}
 	}

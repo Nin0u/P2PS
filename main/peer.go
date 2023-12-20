@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 type Peer struct {
@@ -53,34 +55,36 @@ func AddAddrToPeer(p *Peer, addr net.Addr) {
 	p.Addr = append(p.Addr, addr)
 }
 
-/*
-Tries to find the peer's name in cache.
-If not found adds it
-If found updates its addresses and LastMessageTime
-*/
+func PrintCachedPeers() {
+	for i := 0; i < len(cache_peers.list); i++ {
+		fmt.Println("\t{", cache_peers.list[i].Name, cache_peers.list[i].Addr, "}")
+	}
+}
+
+// Tries to find the peer's name in cache.
+// If not found adds it
+// If found updates its addresses and LastMessageTime
 func AddCachedPeer(p Peer) {
 	if debug_peer {
 		cache_peers.mutex.Lock()
-		fmt.Println("[AddCachedPeer] Old Cached Peers ", cache_peers.list)
+		fmt.Println("[AddCachedPeer] Old Cached Peers")
+		PrintCachedPeers()
 		cache_peers.mutex.Unlock()
-		fmt.Println("[AddCachedPeer] Calling FindCachePeerByName")
 	}
 
 	cache_peers.mutex.Lock()
 	index := FindCachedPeerByName(p.Name)
-	cache_peers.mutex.Unlock()
 	if index == -1 {
 		if debug_peer {
 			fmt.Printf("[AddCachedPeer] Adding %s in cache\n", p.Name)
 		}
-		cache_peers.mutex.Lock()
 		cache_peers.list = append(cache_peers.list[:], p)
 		cache_peers.mutex.Unlock()
 	} else {
 		if debug_peer {
 			fmt.Printf("[AddCachedPeer] %s already in cache. Updating its values\n", p.Name)
 		}
-		cache_peers.mutex.Lock()
+
 		for i := 0; i < len(p.Addr); i++ {
 			AddAddrToPeer(&cache_peers.list[index], p.Addr[i])
 		}
@@ -90,12 +94,13 @@ func AddCachedPeer(p Peer) {
 
 	if debug_peer {
 		cache_peers.mutex.Lock()
-		fmt.Println("[AddCachedPeer] New Cached Peers ", cache_peers.list)
+		fmt.Println("[AddCachedPeer] New Cached Peers")
+		PrintCachedPeers()
 		cache_peers.mutex.Unlock()
 	}
 }
 
-func removeCachedPeer(index int) {
+func RemoveCachedPeer(index int) {
 	if debug_peer {
 		fmt.Printf("Removing %s from cache\n", cache_peers.list[index].Name)
 	}
@@ -122,6 +127,8 @@ func FindCachedPeerByAddr(addr net.Addr) int {
 	return -1
 }
 
+// TODO : renvoyer index sert à qq chose ?
+// TODO : Vérifier que les fins sont bien encapsulés dans des locks
 func CheckHandShake(addr_sender net.Addr) (int, error) {
 	if debug_peer {
 		fmt.Println("[CheckHandShake] addr:", addr_sender)
@@ -133,7 +140,7 @@ func CheckHandShake(addr_sender net.Addr) (int, error) {
 	index := FindCachedPeerByAddr(addr_sender)
 	if index == -1 {
 		if debug_peer {
-			fmt.Println("[CheckHandShake] Handshake error")
+			color.Magenta("[CheckHandShake] Handshake error\n")
 		}
 
 		return index, errors.New("handshake error : peer not cached")
