@@ -126,6 +126,8 @@ func start(client *http.Client, conn net.PacketConn) {
 		return
 	}
 
+	addrs := make([]net.Addr, 0)
+
 	// Check if all the addresses work by sending hello to each of them
 	for i := 0; i < len(addr_list); i++ {
 		addr, err := net.ResolveUDPAddr("udp", addr_list[i])
@@ -139,9 +141,11 @@ func start(client *http.Client, conn net.PacketConn) {
 			fmt.Println("Error send hello :", err.Error())
 			continue
 		}
+
+		addrs = append(addrs, addr)
 	}
 
-	go ConnKeeper(client, conn)
+	go ConnKeeper(client, conn, addrs)
 	go PeerClearer()
 }
 

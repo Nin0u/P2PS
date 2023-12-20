@@ -56,24 +56,16 @@ func datumCacheClearer() {
 }
 
 // TODO : Fix list
-func ConnKeeper(client *http.Client, conn net.PacketConn) {
+func ConnKeeper(client *http.Client, conn net.PacketConn, addrs []net.Addr) {
 	for {
 		time.Sleep(sleep_time)
-		cache_peers.mutex.Lock()
-		index := FindCachedPeerByName(server_name_peer)
-		if index == -1 {
-			color.Red("[ConnKeeper] server not found\n")
-		}
-		server_peer := &cache_peers.list[index]
-		cache_peers.mutex.Unlock()
-
-		for i := len(server_peer.Addr) - 1; i > -1; i-- {
-			err := sendHello(conn, server_peer.Addr[i], username, false)
+		for i := len(addrs) - 1; i > -1; i-- {
+			err := sendHello(conn, addrs[i], username, false)
 			if err != nil {
-				color.Red("[ConnKeeper] Error while sending hello to %s : %s\n ", server_peer.Addr[i].String(), err.Error())
-				server_peer.Addr = append(server_peer.Addr[:i], server_peer.Addr[i+1:]...)
+				color.Red("[ConnKeeper] Error while sending hello to %s : %s\n ", addrs[i].String(), err.Error())
+				addrs = append(addrs[:i], addrs[i+1:]...)
 
-				if len(server_peer.Addr) == 0 {
+				if len(addrs) == 0 {
 					// TODO : possiblement refaire un getAddresses ?
 					color.Red("ERROR : No more addresses for the server. Closing ConnKeeper.")
 					return
