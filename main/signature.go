@@ -62,7 +62,7 @@ func parsePubKey(data []byte) *ecdsa.PublicKey {
 // Pour calculer la signature d'un message
 func computeSignature(data []byte) []byte {
 	if debug_signature {
-		fmt.Printf("[computeSignature] Signing data")
+		fmt.Println("[computeSignature] Signing data")
 	}
 
 	hashed := sha256.Sum256(data)
@@ -76,7 +76,7 @@ func computeSignature(data []byte) []byte {
 	r.FillBytes(signature[:32])
 	s.FillBytes(signature[32:])
 	if debug_signature {
-		fmt.Printf("[computeSignature] Done")
+		fmt.Println("[computeSignature] Done")
 	}
 
 	return signature

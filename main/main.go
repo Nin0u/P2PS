@@ -64,22 +64,22 @@ func ConnKeeper(client *http.Client, conn net.PacketConn) {
 		if index == -1 {
 			color.Red("[ConnKeeper] server not found\n")
 		}
+		server_peer := &cache_peers.list[index]
+		cache_peers.mutex.Unlock()
 
-		for i := len(cache_peers.list[index].Addr) - 1; i > -1; i-- {
-			err := sendHello(conn, cache_peers.list[index].Addr[i], username, false)
+		for i := len(server_peer.Addr) - 1; i > -1; i-- {
+			err := sendHello(conn, server_peer.Addr[i], username, false)
 			if err != nil {
-				color.Red("[ConnKeeper] Error while sending hello to %s : %s\n ", cache_peers.list[index].Addr[i].String(), err.Error())
-				cache_peers.list[index].Addr = append(cache_peers.list[index].Addr[:i], cache_peers.list[index].Addr[i+1:]...)
+				color.Red("[ConnKeeper] Error while sending hello to %s : %s\n ", server_peer.Addr[i].String(), err.Error())
+				server_peer.Addr = append(server_peer.Addr[:i], server_peer.Addr[i+1:]...)
 
-				if len(cache_peers.list[index].Addr) == 0 {
+				if len(server_peer.Addr) == 0 {
 					// TODO : possiblement refaire un getAddresses ?
 					color.Red("ERROR : No more addresses for the server. Closing ConnKeeper.")
-					cache_peers.mutex.Unlock()
 					return
 				}
 			}
 		}
-		cache_peers.mutex.Unlock()
 	}
 }
 
