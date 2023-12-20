@@ -55,7 +55,6 @@ func datumCacheClearer() {
 	}
 }
 
-// TODO : Fix list
 func ConnKeeper(client *http.Client, conn net.PacketConn, addrs []net.Addr) {
 	for {
 		time.Sleep(sleep_time)

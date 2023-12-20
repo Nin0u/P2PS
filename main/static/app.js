@@ -21,13 +21,7 @@ var ContentTree = document.getElementById("Content");
 var content = "";
 var lastContentChose = null;
 
-//TODO: what s your name screen
-//! TODO: listener sur les file à améliore pour plus tard
-//! TODO: download button
-//TODO: Link avec le projet
 //TODO: handle error (si le peername n existe pas / si le file n existe pas / si le serveur ne réponds pas)
-
-
 
 ExportButton.addEventListener("click", clickExport);
 DownloadButton.addEventListener("click", clickDownload)

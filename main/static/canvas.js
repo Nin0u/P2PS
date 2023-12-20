@@ -5,7 +5,6 @@ var intervalID;
 var nb = 12;
 var rotate_angle = 0;
 
-
 function startWait() {
     intervalID = setInterval(draw, 1000 / 60);
 
@@ -62,5 +61,4 @@ function draw() {
     }
 
     rotate_angle += Math.PI * 2 / 1000;
-
 }
