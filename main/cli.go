@@ -238,6 +238,21 @@ func cli(client *http.Client, conn net.PacketConn) {
 				}
 			}
 
+		case keyboard.KeyBackspace:
+			if len(s) != 0 {
+				if input_cursor != 0 {
+					if input_cursor < len(s) {
+						s = s[:input_cursor-1] + s[input_cursor:]
+						input_cursor--
+						fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s[:input_cursor])
+					} else {
+						s = s[:len(s)-1]
+						input_cursor = len(s)
+						fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s)
+					}
+				}
+			}
+
 		case keyboard.KeySpace: // Default case doesn't work with space idk why
 			addCharToCommand(" ", &s)
 
