@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/eiannone/keyboard"
+	"github.com/fatih/color"
 )
 
 type Command struct {
@@ -18,8 +19,8 @@ type Command struct {
 	HelpText    string
 }
 
-var commands = []Command{{
-	CommandName: "list    ", Argument: "                   ", HelpText: "list all peers"},
+var commands = []Command{
+	{CommandName: "list   ", Argument: "                   ", HelpText: "list all peers"},
 	{CommandName: "data   ", Argument: "<peername>         ", HelpText: "list data of the peer"},
 	{CommandName: "data_dl", Argument: "<peername> [<path>]", HelpText: "download data of the peer. If a path is given then it will download all the data from this path."},
 	{CommandName: "export ", Argument: "<path>             ", HelpText: "export the file/folder you choose"},
@@ -97,6 +98,22 @@ func addCharToCommand(c string, s *string) {
 	}
 }
 
+func backSpace(s *string) {
+	if len(*s) != 0 {
+		if input_cursor != 0 {
+			if input_cursor < len(*s) {
+				*s = (*s)[:input_cursor-1] + (*s)[input_cursor:]
+				input_cursor--
+				fmt.Printf("\r%s%s \r%s%s", prompt, *s, prompt, (*s)[:input_cursor])
+			} else {
+				*s = (*s)[:len(*s)-1]
+				input_cursor = len(*s)
+				fmt.Printf("\r%s%s \r%s%s", prompt, *s, prompt, *s)
+			}
+		}
+	}
+}
+
 func title_print() {
 	fmt.Println(" __        __   _                            _      ")
 	fmt.Println(" \\ \\      / /__| | ___ ___  _ __ ___   ___  | |_ ___  ")
@@ -122,7 +139,7 @@ func start(client *http.Client, conn net.PacketConn) {
 	fmt.Println("Connecting to server :", server)
 	addr_list, err := GetAddresses(client, server_name_peer)
 	if err != nil {
-		fmt.Println("Error getAddr on server :", err.Error())
+		color.Red("[Start] Error getAddr on server : %s\n", err.Error())
 		return
 	}
 
@@ -132,13 +149,13 @@ func start(client *http.Client, conn net.PacketConn) {
 	for i := 0; i < len(addr_list); i++ {
 		addr, err := net.ResolveUDPAddr("udp", addr_list[i])
 		if err != nil {
-			fmt.Println("Error resolve addr", err.Error())
+			color.Red("[Start] Error resolve addr : %s\n", err.Error())
 			continue
 		}
 
 		err = sendHello(conn, addr, username, false)
 		if err != nil {
-			fmt.Println("Error send hello :", err.Error())
+			color.Magenta("Error send hello : %s\n", err.Error())
 			continue
 		}
 
@@ -174,7 +191,6 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 
 	default:
 		fmt.Println("Unknown command ;-;")
-
 	}
 }
 
@@ -217,34 +233,9 @@ func cli(client *http.Client, conn net.PacketConn) {
 			s = ""
 
 		case keyboard.KeyBackspace2:
-			if len(s) != 0 {
-				if input_cursor != 0 {
-					if input_cursor < len(s) {
-						s = s[:input_cursor-1] + s[input_cursor:]
-						input_cursor--
-						fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s[:input_cursor])
-					} else {
-						s = s[:len(s)-1]
-						input_cursor = len(s)
-						fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s)
-					}
-				}
-			}
-
+			backSpace(&s)
 		case keyboard.KeyBackspace:
-			if len(s) != 0 {
-				if input_cursor != 0 {
-					if input_cursor < len(s) {
-						s = s[:input_cursor-1] + s[input_cursor:]
-						input_cursor--
-						fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s[:input_cursor])
-					} else {
-						s = s[:len(s)-1]
-						input_cursor = len(s)
-						fmt.Printf("\r%s%s \r%s%s", prompt, s, prompt, s)
-					}
-				}
-			}
+			backSpace(&s)
 
 		case keyboard.KeySpace: // Default case doesn't work with space idk why
 			addCharToCommand(" ", &s)
@@ -261,7 +252,7 @@ func cli(client *http.Client, conn net.PacketConn) {
 func execList(client *http.Client) {
 	list, err := GetPeers(client)
 	if err != nil {
-		fmt.Println("Error getPeers http :", err.Error())
+		color.Red("[ExecList] Error getPeers http : %s\n", err.Error())
 		return
 	}
 
@@ -276,30 +267,28 @@ func execSendHello(client *http.Client, conn net.PacketConn, words []string) err
 		return errors.New("wrong number of argument")
 	}
 
-	addrs_peer, err1 := GetAddresses(client, words[1])
-	var err2 error
-	var err3 error
+	addrs_peer, err := GetAddresses(client, words[1])
+	if err != nil {
+		color.Red("[ExecList] Error getAddresses : %s\n", err.Error())
+		return err
+	}
+
+	var flag_ok = false
+
 	for i := 0; i < len(addrs_peer); i++ {
 		addr, err := net.ResolveUDPAddr("udp", addrs_peer[i])
 		if err != nil {
-			err2 = err
+			continue
 		}
 
 		err = sendHello(conn, addr, username, true)
-		if err != nil {
-			err3 = err
+		if err == nil {
+			flag_ok = true
 		}
 	}
 
-	if err1 != nil {
-		return err1
-	}
-	if err2 != nil {
-		return err2
-	}
-
-	if err3 != nil {
-		return err3
+	if !flag_ok {
+		return err
 	}
 
 	return nil
@@ -333,9 +322,8 @@ func execGetData(client *http.Client, conn net.PacketConn, words []string) (*Pee
 	}
 
 	if p.Root == nil || [32]byte(hash) != p.Root.Hash {
-		fmt.Println("(Re)explore")
 		p.Root = BuildNode(p.Name, [32]byte(hash), DIRECTORY)
-		explore(conn, p)
+		Explore(conn, p)
 	}
 
 	PrintNode(p.Root, "")
@@ -371,9 +359,9 @@ func execGetDataDL(client *http.Client, conn net.PacketConn, words []string) err
 
 	if p.Root == nil || p.Root.Hash != [32]byte(hash) {
 		p.Root = BuildNode(p.Name, [32]byte(hash), DIRECTORY)
-		explore(conn, p)
+		Explore(conn, p)
 		PrintNode(p.Root, "")
-		return errors.New("Tree has been updated. Please reboot the download")
+		return errors.New("tree has been updated. Please reboot the download")
 	}
 
 	if len(words) == 3 {
@@ -394,7 +382,7 @@ func execGetDataDL(client *http.Client, conn net.PacketConn, words []string) err
 		download_multi(conn, p, [32]byte(hash), p.Name)
 	}
 
-	fmt.Println("END !")
+	fmt.Println("DONE !")
 	return nil
 }
 

@@ -129,7 +129,7 @@ func FindCachedPeerByAddr(addr net.Addr) int {
 
 // TODO : renvoyer index sert à qq chose ?
 // TODO : Vérifier que les fins sont bien encapsulés dans des locks
-func CheckHandShake(addr_sender net.Addr) (int, error) {
+func CheckHandShake(addr_sender net.Addr) error {
 	if debug_peer {
 		fmt.Println("[CheckHandShake] addr:", addr_sender)
 	}
@@ -143,10 +143,10 @@ func CheckHandShake(addr_sender net.Addr) (int, error) {
 			color.Magenta("[CheckHandShake] Handshake error\n")
 		}
 
-		return index, errors.New("handshake error : peer not cached")
+		return errors.New("handshake error : peer not cached")
 	}
 
 	cache_peers.list[index].LastMessageTime = time.Now()
 
-	return index, nil
+	return nil
 }

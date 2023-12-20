@@ -39,27 +39,26 @@ func checkHello(client *http.Client, message []byte, nb_byte int, addr_sender ne
 	signature := message[7+len : nb_byte]
 	cache_peers.mutex.Lock()
 	index_peer := FindCachedPeerByName(name_sender)
-	cache_peers.mutex.Unlock()
 
 	var key []byte
 	// I don't know the peer
 	if index_peer == -1 {
+		cache_peers.mutex.Unlock()
 		if debug_handler {
-			fmt.Println(error_label, "Didn't find peer in cache")
+			color.Magenta("%s Didn't find peer in cache\n", error_label)
 		}
 
 		// Ask the server the peer's public key
 		k, err := GetKey(client, name_sender)
 		if err != nil {
 			if debug_handler {
-				fmt.Println(error_label, "Error while fetching key :", err)
+				color.Magenta("%s Error while fetching key : %s\n", error_label, err.Error())
 			}
 			return
 		}
 		key = k
 	} else {
 		key = make([]byte, 64)
-		cache_peers.mutex.Lock()
 		copy(key, cache_peers.list[index_peer].PublicKey[:])
 		cache_peers.mutex.Unlock()
 	}
@@ -68,7 +67,7 @@ func checkHello(client *http.Client, message []byte, nb_byte int, addr_sender ne
 		AddCachedPeer(BuildPeer(client, message, addr_sender, key))
 	} else {
 		if debug_handler {
-			fmt.Println(error_label, "Invalid signature")
+			color.Magenta("%s Invalid signature\n", error_label)
 		}
 		return
 	}
@@ -88,7 +87,7 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 	_, err := sendHelloReply(conn, addr_sender, name, getID(message))
 	if err != nil {
 		if debug_handler {
-			fmt.Println("[HandleHello] Error in sending HelloReply :", err)
+			color.Red("[HandleHello] Error in sending HelloReply : %s\n", err.Error())
 		}
 	}
 }
@@ -102,7 +101,7 @@ func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sen
 	checkHello(client, message, nb_byte, addr_sender, "[HandleHelloReply]")
 }
 
-func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr, index_peer int) {
+func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	if debug_handler {
 		fmt.Println("[HandlePublicKey] Triggered")
 	}
@@ -113,6 +112,12 @@ func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_send
 
 	key := make([]byte, 64)
 	cache_peers.mutex.Lock()
+	index_peer := FindCachedPeerByAddr(addr_sender)
+	if index_peer == -1 {
+		color.Magenta("[HandlePublicKey] Unknown Peer\n")
+		cache_peers.mutex.Unlock()
+		return
+	}
 	copy(key, cache_peers.list[index_peer].PublicKey[:])
 	cache_peers.mutex.Unlock()
 
@@ -120,18 +125,18 @@ func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_send
 		_, err := sendPublicKeyReply(conn, addr_sender, getID(message))
 		if err != nil {
 			if debug_handler {
-				fmt.Println("[HandlePublicKey] Error while sending public key :", err)
+				color.Red("[HandlePublicKey] Error while sending public key : %s\n", err.Error())
 			}
 		}
 	} else {
 		if debug_handler {
-			fmt.Println("[HandlePublicKey] Invalid signature with known peer")
+			color.Magenta("[HandlePublicKey] Invalid signature with known peer\n")
 		}
 		return
 	}
 }
 
-func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr, index_peer int) {
+func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	if debug_handler {
 		fmt.Println("[HandleRoot] Triggered")
 	}
@@ -142,6 +147,12 @@ func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender ne
 
 	key := make([]byte, 64)
 	cache_peers.mutex.Lock()
+	index_peer := FindCachedPeerByAddr(addr_sender)
+	if index_peer == -1 {
+		color.Magenta("[HandleRoot] Unknown Peer\n")
+		cache_peers.mutex.Unlock()
+		return
+	}
 	copy(key, cache_peers.list[index_peer].PublicKey[:])
 	cache_peers.mutex.Unlock()
 
@@ -149,12 +160,12 @@ func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender ne
 		_, err := sendRootReply(conn, addr_sender, getID(message))
 		if err != nil {
 			if debug_handler {
-				fmt.Println("[HandleRoot] Error while sending root :", err)
+				color.Red("[HandleRoot] Error while sending root : %s\n", err.Error())
 			}
 		}
 	} else {
 		if debug_handler {
-			fmt.Println("[HandleRoot] Invalid signature with known peer")
+			color.Magenta("[HandleRoot] Invalid signature with known peer")
 		}
 		return
 	}
@@ -184,8 +195,7 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 	check := sha256.Sum256(value)
 	if check != [32]byte(hash) {
 		if debug_handler {
-			fmt.Printf("[HandleDatum] Invalid checksum : Given Hash = %x, Expected Hash = %x\n", hash, check)
-			fmt.Println("[HandleDatum]", hash, value)
+			color.Magenta("[HandleDatum] Invalid checksum : Given Hash = %x, Expected Hash = %x\n", hash, check)
 		}
 		return
 	}
@@ -198,19 +208,21 @@ func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 	defer sync_map.Unblock(getID(message))
 
 	hash := message[7 : 7+32]
-	fmt.Printf("NoDatum for the hash : %x\n", hash)
+	if debug_handler {
+		color.Magenta("[handleNoDatum] NoDatum for the hash : %x\n", hash)
+	}
 
 	AddDatumCache([32]byte(hash), nil)
 }
 
 func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
-	//if debug_handler {
-	fmt.Println("[HandleGetDatum] GetDatum Received id :", getID(message))
-	//}
+	if debug_handler {
+		fmt.Println("[HandleGetDatum] GetDatum Received id :", getID(message))
+	}
 
 	len := getLength(message)
 	if len != 32 {
-		fmt.Println("[HandleGetDatum] Error on the length !")
+		color.Magenta("[HandleGetDatum] Error on the length !")
 		return
 	}
 
@@ -220,45 +232,37 @@ func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sende
 	node, ok := map_export.Content[[32]byte(hash)]
 	map_export.Mutex.Unlock()
 	if !ok {
-		//fmt.Println("No Datum :", hash)
 		_, err := sendNoDatum(conn, addr_sender, [32]byte(hash), getID(message))
 		if err != nil {
 			if debug_handler {
-				fmt.Println("[HandleGetDatum] Error while sending datum :", err)
+				color.Red("[HandleGetDatum] Error while sending datum : %s\n", err.Error())
 			}
 		}
 		return
 	}
 
-	//fmt.Println("Node :", node)
 	sendDatum(conn, addr_sender, [32]byte(hash), getID(message), node)
 }
 
-// ? Pour plus tard, Quand on fait un send hello, si il timeout
-// ? On lance un NatTraversalRequest et va attendre un hello de l'addr qu'on a mis dedans !
-// ? Au moment où on recoit un hello, il faut peut etre débloquer le gars en question !
-// ? Au moment où on est débloqué, il faut relancer un hello !
-// ! Le sendHello est bloquant, donc à faire dans un autre thread
-// * Peut etre que lui doit attendre un hello apres le sendHello ? on verra...
+// TODO : Check les lenght sur TOUS les handlers
 func HandleNatTraversal(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	//Parse Addr
 	addr_byte := message[7 : 7+getLength(message)]
 	fmt.Println("nb_byte = ", nb_byte)
 	if debug_handler {
-		fmt.Println("[HandleNatTraversal]", addr_byte)
+		fmt.Println("[HandleNatTraversal] addr_byte =", addr_byte)
 	}
 
 	ip, ok := netip.AddrFromSlice(addr_byte[:len(addr_byte)-2])
 	if !ok {
-		fmt.Println("[HandleNatTarversal] Error addr from slice handleNat :", addr_byte)
+		color.Red("[HandleNatTarversal] Error addr from slice handleNat : %x\n", addr_byte)
 		return
 	}
 	port := uint16(addr_byte[len(addr_byte)-2])<<8 + uint16(addr_byte[len(addr_byte)-1])
 	addr_string := netip.AddrPortFrom(ip, port).String()
-	fmt.Println("addr_string :", addr_string)
 	addr_dest, err := net.ResolveUDPAddr("udp", addr_string)
 	if err != nil {
-		fmt.Println("[HandleNatTarversal] Error build addr :", addr_string, err.Error())
+		color.Red("[HandleNatTarversal] Error build addr %s : %s\n", addr_string, err.Error())
 		return
 	}
 
@@ -268,13 +272,6 @@ func HandleNatTraversal(conn net.PacketConn, message []byte, nb_byte int, addr_s
 func HandleRootReply(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	defer sync_map.Unblock(getID(message))
 
-	hash := message[7 : 7+32]
-	map_export.Mutex.Lock()
-	hash_c := rootExport.Hash
-	map_export.Mutex.Unlock()
-
-	if [32]byte(hash) != hash_c {
-		fmt.Println("[HandleRootReply] Error not correct hash")
-		return
-	}
+	// TODO : juste check qu'il a bien envoyé un hash (len) mais on fait rien avec
+	// TODO : check signature aussi
 }

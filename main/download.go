@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 // Keys are Hash, Value are the value in the getDatum request
@@ -23,6 +25,7 @@ type DatumCache struct {
 }
 
 var datumCache DatumCache = DatumCache{content: make(map[[32]byte]Data)}
+var debug_download = false
 
 // TODO : On part pour l'instant du principe que la taille  est limitée par le temps mais à voir avec le multi DL
 func AddDatumCache(hash [32]byte, value []byte) {
@@ -62,13 +65,12 @@ func RecupDatum(conn net.PacketConn, req *RequestDatum, p *Peer) []byte {
 	//Recup the Datum
 	value, ok := GetDatumCache(req.Hash)
 
-	for j := 0; !ok && j < 5; j++ {
-		//fmt.Println("Send GET DATUM : " + req.Path)
+	if !ok {
 		// TODO : on choisit quelle addr du pair ??? J'ai mis [0] pour l'instant
 		_, err := sendGetDatum(conn, p.Addr[0], req.Hash)
 
 		if err != nil {
-			fmt.Println("[RecupDatum] Error send getDatum", err.Error())
+			color.Red("[RecupDatum] Error send getDatum : %s\n", err.Error())
 			return nil
 		}
 
@@ -76,19 +78,19 @@ func RecupDatum(conn net.PacketConn, req *RequestDatum, p *Peer) []byte {
 	}
 
 	if !ok {
-		fmt.Println("[RecupDatum] Error on get datum " + req.Path)
+		color.Red("[RecupDatum] Error on get datum %s\n", req.Path)
 		return nil
 	}
 
 	if value == nil {
-		fmt.Println("[RecupDatum] No Datum, Stop here")
+		color.Magenta("[RecupDatum] No Datum, Stop here\n")
 		return nil
 	}
 
 	return value
 }
 
-func explore(conn net.PacketConn, p *Peer) {
+func Explore(conn net.PacketConn, p *Peer) {
 	reqDatum := make([]RequestDatum, 0)
 	reqDatum = append(reqDatum, buildRequestDatum(p.Name, p.Root.Hash, 0))
 
@@ -109,7 +111,9 @@ func explore(conn net.PacketConn, p *Peer) {
 		value = value[1:]
 
 		// Add the data in the tree
-		fmt.Println("[Explore] Data from " + req.Path + " received !")
+		if debug_download {
+			fmt.Println("[Explore] Data from " + req.Path + " received !")
+		}
 		pa := strings.Split(req.Path, "/")
 		if p.Root.Hash != req.Hash {
 			change := AddNode(p.Root, pa[1:], pa[len(pa)-1], req.Hash, typeFile)
@@ -120,26 +124,27 @@ func explore(conn net.PacketConn, p *Peer) {
 
 		// If it's directory, need to explore its children
 		if typeFile == DIRECTORY {
-			fmt.Println("[Explore] Directory received !")
+			if debug_download {
+				fmt.Println("[Explore] Directory received !")
+			}
 
 			for i := len(value) - 64; i >= 0; i -= 64 {
 				name := string(bytes.TrimRight(value[i:i+32], string(byte(0))))
 				hash := value[i+32 : i+64]
 				path := req.Path + "/" + name
-				fmt.Println(path)
 
 				reqDatum = append(reqDatum, buildRequestDatum(path, [32]byte(hash), 0))
-
 			}
 
 		} else {
-			fmt.Println("[Explore] File received")
+			if debug_download {
+				fmt.Println("[Explore] File received")
+			}
 		}
-
 	}
 }
 
-func download(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path string) {
+func Download(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path string) {
 	reqDatum := make([]RequestDatum, 0)
 	reqDatum = append(reqDatum, buildRequestDatum(start_path, first_hash, 0))
 
@@ -159,10 +164,13 @@ func download(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path stri
 		value = value[1:]
 
 		if typeFile == DIRECTORY {
-			fmt.Println("[Download] Directory received !")
+			if debug_download {
+				fmt.Println("[Download] Directory received !")
+			}
+
 			err := os.MkdirAll(req.Path, os.ModePerm)
 			if err != nil {
-				fmt.Println("Error mkdir all :", err.Error())
+				color.Red("[Download] Error mkdir all : %s\n", err.Error())
 			}
 			for i := len(value) - 64; i >= 0; i -= 64 {
 				name := string(bytes.TrimRight(value[i:i+32], string(byte(0))))
@@ -171,11 +179,12 @@ func download(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path stri
 				fmt.Println(path)
 
 				reqDatum = append(reqDatum, buildRequestDatum(path, [32]byte(hash), 0))
-
 			}
 
 		} else if typeFile == TREE {
-			fmt.Println("[Download] BigFile received !")
+			if debug_download {
+				fmt.Println("[Download] BigFile received !")
+			}
 
 			for i := len(value) - 32; i >= 0; i -= 32 {
 				hash := value[i : i+32]
@@ -183,15 +192,18 @@ func download(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path stri
 			}
 
 		} else if typeFile == CHUNK {
+			if debug_download {
+				fmt.Println("[Download] Chunk received !")
+			}
 
 			file, err := os.OpenFile(req.Path, os.O_WRONLY|os.O_CREATE, os.ModePerm)
 			if err != nil {
-				fmt.Println("Error open file :", err.Error())
+				color.Red("[Download] Error open file : %s\n", err.Error())
 				return
 			}
 			_, err = file.WriteAt(value, req.Count)
 			if err != nil {
-				fmt.Println("Error writeAt :", err.Error())
+				color.Red("[Download] Error writeAt : %s\n", err.Error())
 				return
 			}
 
@@ -200,7 +212,7 @@ func download(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path stri
 			}
 
 		} else {
-			fmt.Println("Error : unknown file type !")
+			color.Magenta("[Download] Error : unknown file type !\n")
 			return
 		}
 	}
@@ -221,23 +233,26 @@ func download_multi_aux(conn net.PacketConn, req *RequestDatum, p *Peer) []Reque
 	value = value[1:]
 
 	if typeFile == DIRECTORY {
-		fmt.Println("[Download] Directory received !")
+		if debug_download {
+			fmt.Println("[DownloadMultiAux] Directory received !")
+		}
+
 		err := os.MkdirAll(req.Path, os.ModePerm)
 		if err != nil {
-			fmt.Println("Error mkdir all :", err.Error())
+			color.Red("[DownloadMultiAux] Error mkdir all : %s\n", err.Error())
 		}
 		for i := len(value) - 64; i >= 0; i -= 64 {
 			name := string(bytes.TrimRight(value[i:i+32], string(byte(0))))
 			hash := value[i+32 : i+64]
 			path := req.Path + "/" + name
-			fmt.Println(path)
 
 			buff = append(buff, RequestDatum{Path: path, Hash: [32]byte(hash), Count: 0, Info: 0})
-			fmt.Println("mybuff =", buff)
 		}
 
 	} else if typeFile == TREE {
-		fmt.Println("[Download] BigFile received !")
+		if debug_download {
+			fmt.Println("[DownloadMultiAux] BigFile received !")
+		}
 
 		for i := len(value) - 32; i >= 0; i -= 32 {
 			hash := value[i : i+32]
@@ -245,10 +260,13 @@ func download_multi_aux(conn net.PacketConn, req *RequestDatum, p *Peer) []Reque
 		}
 
 	} else if typeFile == CHUNK {
+		if debug_download {
+			fmt.Println("[DownloadMultiAux] Chunk received !")
+		}
 		req.Info = 1
 		buff = append(buff, *req)
 	} else {
-		fmt.Println("Error : unknown file type !")
+		color.Magenta("[DownloadMultiAux] Error : unknown file type !\n")
 		buff = append(buff, RequestDatum{Info: -1})
 		return buff
 	}
@@ -263,7 +281,7 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 
 	for len(reqDatum) != 0 {
 
-		//Pop the 3 last elements
+		//Pop the max_request last elements
 		nb := min(max_request, len(reqDatum))
 		reqs := reqDatum[len(reqDatum)-nb:]
 		reqDatum = reqDatum[:len(reqDatum)-nb]
@@ -285,23 +303,20 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 
 		//Add the result to the stack
 		for i := 0; i < nb; i++ {
-			//fmt.Println("buff[i] =", buffs[i])
 			if len(buffs[i]) > 0 && buffs[i][0].Info == -1 {
-				fmt.Println("[DownloadMulti] Error no value")
+				color.Red("[DownloadMulti] Error no value\n")
 				return
 			}
 			reqDatum = append(reqDatum, buffs[i]...)
 		}
 
-		//fmt.Println(reqDatum)
-		//time.Sleep(time.Second * 2)
-
+		// Write chunks
 		for {
 			if len(reqDatum) == 0 {
 				break
 			}
 
-			//Si le Chunk a été recup
+			// If the chunk has been downloaded
 			if reqDatum[len(reqDatum)-1].Info == 1 {
 				//Pop and write the element
 				req := reqDatum[len(reqDatum)-1]
@@ -312,12 +327,12 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 
 				file, err := os.OpenFile(req.Path, os.O_WRONLY|os.O_CREATE, os.ModePerm)
 				if err != nil {
-					fmt.Println("Error open file :", err.Error())
+					color.Red("[DownloadMulti] Error open file : %s\n", err.Error())
 					return
 				}
 				_, err = file.WriteAt(value, req.Count)
 				if err != nil {
-					fmt.Println("Error writeAt :", err.Error())
+					color.Red("[DownloadMulti] Error writeAt : %s\n", err.Error())
 					return
 				}
 
@@ -329,6 +344,5 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 				break
 			}
 		}
-
 	}
 }

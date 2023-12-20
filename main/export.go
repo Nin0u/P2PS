@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"sync"
+
+	"github.com/fatih/color"
 )
 
 type ExportNode struct {
@@ -19,14 +21,14 @@ type ExportNode struct {
 
 var rootExport *ExportNode = nil
 
-// Map containing Tree's Node. It serves to access efficatively to the data ! Needed for handleGetDatum
-
+// Map containing Tree's Node. It serves to access efficiently to the data ! Needed for handleGetDatum
 type MapExport struct {
 	Content map[[32]byte]*ExportNode
 	Mutex   sync.Mutex
 }
 
 var map_export MapExport = MapExport{Content: map[[32]byte]*ExportNode{}}
+var debug_export = false
 
 func buildExportNode(path string, hash [32]byte, num int64, type_file byte) *ExportNode {
 	node := ExportNode{Path: path, Hash: hash, Num: num, Type: type_file}
@@ -35,10 +37,12 @@ func buildExportNode(path string, hash [32]byte, num int64, type_file byte) *Exp
 }
 
 func exportFile(path string) *ExportNode {
-	fmt.Println("[exportFile]", path)
+	if debug_export {
+		fmt.Println("[exportFile]", path)
+	}
 	file, err := os.OpenFile(path, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		fmt.Println("[exportFile] error open", path, err.Error())
+		color.Red("[exportFile] error open %s : %s\n", path, err.Error())
 		return nil
 	}
 
@@ -50,7 +54,7 @@ func exportFile(path string) *ExportNode {
 	for {
 		n, err := file.Read(chunk)
 		if err != nil && err != io.EOF {
-			fmt.Println("[exportFile] error read", n, err.Error())
+			color.Red("[exportFile] error read %d : %s\n", n, err.Error())
 			return nil
 		}
 
@@ -102,10 +106,13 @@ func exportFile(path string) *ExportNode {
 }
 
 func exportDirectory(path string) *ExportNode {
-	fmt.Println("[exportDirectory]", path)
+	if debug_export {
+		fmt.Println("[exportDirectory]", path)
+	}
+
 	entry, err := os.ReadDir(path)
 	if err != nil {
-		fmt.Println("[exportDirectory] Error ReadDir ", path, err.Error())
+		color.Red("[exportDirectory] Error ReadDir %s : %s\n", path, err.Error())
 		return nil
 	}
 
@@ -135,10 +142,13 @@ func exportDirectory(path string) *ExportNode {
 }
 
 func export(path string) error {
-	fmt.Println("[Export] path :", path)
+	if debug_export {
+		fmt.Println("[Export] path :", path)
+	}
+
 	info, err := os.Stat(path)
 	if err != nil {
-		fmt.Println("[Export] Error stat", path, err.Error())
+		color.Red("[Export] Error stat", path, err.Error())
 		return errors.New("no such file")
 	}
 

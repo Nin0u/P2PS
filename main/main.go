@@ -93,7 +93,7 @@ func Recv(client *http.Client, conn net.PacketConn) {
 		} else if t == HelloReply {
 			HandleHelloReply(client, message, nb_byte, addr_sender)
 		} else {
-			index_peer, err := CheckHandShake(addr_sender)
+			err := CheckHandShake(addr_sender)
 			if err != nil {
 				if debug {
 					fmt.Println(err)
@@ -108,10 +108,10 @@ func Recv(client *http.Client, conn net.PacketConn) {
 				HandleError(message, "[Error]")
 
 			case PublicKey:
-				HandlePublicKey(conn, message, nb_byte, addr_sender, index_peer)
+				HandlePublicKey(conn, message, nb_byte, addr_sender)
 
 			case Root:
-				HandleRoot(conn, message, nb_byte, addr_sender, index_peer)
+				HandleRoot(conn, message, nb_byte, addr_sender)
 
 			case GetDatum:
 				HandleGetDatum(conn, message, nb_byte, addr_sender)
@@ -159,6 +159,7 @@ func main() {
 			debug_handler = true
 			debug_message = true
 			debug_signature = true
+			debug_export = true
 		} else if args[i][:11] == "--username=" {
 			flag_username = true
 			name := strings.Trim(args[i][11:], " ")
