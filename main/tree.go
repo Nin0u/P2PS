@@ -8,7 +8,7 @@ import (
 type Node struct {
 	FileType byte
 	Hash     [32]byte
-	Name     string // ->
+	Name     string
 	Children []*Node
 }
 
@@ -55,9 +55,9 @@ func PrintNode(n *Node, prefix string) {
 			}
 		}
 	}
-
 }
 
+// Gets the hash of a file in the tree
 func FindPath(n *Node, path []string) ([32]byte, error) {
 	if len(path) == 0 {
 		return n.Hash, nil

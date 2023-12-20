@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/fatih/color"
 )
 
 const server string = "https://jch.irif.fr:8443/"
@@ -41,10 +43,6 @@ func GetPeers(c *http.Client) ([]string, error) {
 		return nil, err
 	}
 
-	if debug_rest {
-		fmt.Println("[GetPeers] No error on request")
-	}
-
 	// * We're gonna store the peers we got in this array
 	arr_peers := make([]string, 0)
 
@@ -65,7 +63,7 @@ func GetPeers(c *http.Client) ([]string, error) {
 	}
 
 	if debug_rest {
-		fmt.Println("[GetPeers] Invalid status code")
+		color.Red("[GetPeers] Invalid status code\n")
 	}
 
 	return nil, errors.New("invalid status code")
@@ -81,12 +79,7 @@ func GetAddresses(c *http.Client, peer string) ([]string, error) {
 		return nil, err
 	}
 
-	// Debug
-	if debug_rest {
-		fmt.Println("[GetAddresses] No error on request")
-	}
-
-	// * We're gonna store the peers we got in this array
+	// * We're gonna store the addresses we got in this array
 	arr_addr := make([]string, 0)
 
 	if res.StatusCode == 200 {
@@ -107,13 +100,13 @@ func GetAddresses(c *http.Client, peer string) ([]string, error) {
 
 	if res.StatusCode == 404 {
 		if debug_rest {
-			fmt.Println("[GetAddresses] Unknown Peer")
+			color.Magenta("[GetAddresses] Unknown Peer\n")
 		}
 		return nil, errors.New("unknown peer")
 	}
 
 	if debug_rest {
-		fmt.Println("[GetAddresses] Invalid status code")
+		color.Red("[GetAddresses] Invalid status code\n")
 	}
 	return nil, errors.New("invalid status code")
 }
@@ -126,10 +119,6 @@ func GetKey(c *http.Client, peer string) ([]byte, error) {
 	res, err := getRequest(c, server+peers+peer+"/key")
 	if err != nil {
 		return nil, err
-	}
-
-	if debug_rest {
-		fmt.Println("[GetKey] No error on request")
 	}
 
 	if res.StatusCode == 200 {
@@ -151,13 +140,13 @@ func GetKey(c *http.Client, peer string) ([]byte, error) {
 	}
 	if res.StatusCode == 404 {
 		if debug_rest {
-			fmt.Println("[GetKey] No root registered")
+			color.Magenta("[GetKey] Unknown peer\n")
 		}
 		return nil, errors.New("unknown peer")
 	}
 
 	if debug_rest {
-		fmt.Println("[GetKey] Invalid status code")
+		color.Red("[GetKey] Invalid status code\n")
 	}
 	return nil, errors.New("invalid status code")
 }
@@ -170,10 +159,6 @@ func GetRoot(c *http.Client, peer string) ([]byte, error) {
 	res, err := getRequest(c, server+peers+peer+"/root")
 	if err != nil {
 		return nil, err
-	}
-
-	if debug_rest {
-		fmt.Println("[GetRoot] No error on request")
 	}
 
 	if res.StatusCode == 200 {
@@ -195,13 +180,13 @@ func GetRoot(c *http.Client, peer string) ([]byte, error) {
 	}
 	if res.StatusCode == 404 {
 		if debug_rest {
-			fmt.Println("[GetRoot] Unknown peer")
+			color.Magenta("[GetRoot] Unknown peer\n")
 		}
 		return nil, errors.New("unknown peer")
 	}
 
 	if debug_rest {
-		fmt.Println("[GetRoot] Invalid status code")
+		color.Red("[GetRoot] Invalid status code\n")
 	}
 	return nil, errors.New("invalid status code")
 }

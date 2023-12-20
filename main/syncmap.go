@@ -2,13 +2,17 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
 )
 
-// Keys are Id and value are sync.WaitGroup
+// SyncMap is a structure that helps with packet reemissions and acknowledgements
+// Keys are Id(for messages in general) and net.Addr(for NATs) and value are sync.WaitGroup
+// When a packet have to be ack-ed, the function that sends waits on a waitgroup that is stored in the map.
+// The function that recieves the ack shall unblock the sending function.
 type SyncMap[K comparable] struct {
 	content map[K]*sync.WaitGroup
 	mutex   sync.Mutex
@@ -36,7 +40,9 @@ func (this *SyncMap[K]) DeleteSyncMap(id K) {
 	this.mutex.Unlock()
 }
 
-// This function unblocks the waitgroup associated with a messageId
+// This function unblocks the waitgroup associated with a key
+// Should be called by the receiving function
+// To prevent double wg.done() that causes crashes we have to make sure that this function locks the map
 func (this *SyncMap[K]) Unblock(key K) {
 	this.mutex.Lock()
 	wg, b := this.content[key]
@@ -73,17 +79,16 @@ func (this *SyncMap[K]) Reemit(conn net.PacketConn, addr net.Addr, message *Mess
 		_, err := conn.WriteTo(message.build(), addr)
 		if err != nil {
 			if debug_message {
-				fmt.Println("[Reemit] Erreur :", err)
+				color.Red("[Reemit] Erreur : %s\n", err.Error())
 			}
 			return i, err
 		}
 
-		// Timeout peut etre pour éviter de bloquer indéfiniment
 		has_timedout := waitTimeout(wg, message.Timeout)
 
 		if has_timedout {
 			if debug_message {
-				fmt.Printf("[reemit] Timeout on id : %d %p\n", message.Id, wg)
+				color.Magenta("[reemit] Timeout on id : %d %p\n", message.Id, wg)
 			}
 			message.Timeout *= 2
 		} else {
@@ -91,10 +96,7 @@ func (this *SyncMap[K]) Reemit(conn net.PacketConn, addr net.Addr, message *Mess
 		}
 	}
 
-	//Atomic Operation !!!
-	//Here we want to prevent from double wg.done() because it causes crashes
-	//Assure that nobody is going to do a wg.done() !
-	//If someone do a wg.done() before -> we have received the packet and have timeout, it's weird but acceptable
+	// If someone do a wg.done() before -> we have received the packet and have timeout, it's weird but acceptable
 	this.Unblock(key)
 
 	return -1, errors.New("\n[reemit] Timeout exceeded")
