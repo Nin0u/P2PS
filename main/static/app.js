@@ -2,6 +2,7 @@ var TitleBlock = document.getElementById("TitleBlock");
 var DListBlock = document.getElementById("DList");
 var TreeBlock  = document.getElementById("Tree");
 var WaitBlock  = document.getElementById("Wait");
+var MsgBlock   = document.getElementById("Msg");
 
 var ExportButton = document.getElementById("Export");
 var DownloadButton = document.getElementById("Download");
@@ -74,31 +75,41 @@ function dlList() {
             "Content-type": "application/json; charset=UTF-8"
         }
     }).then(response => {
-        response.json().then(data => {
-            console.log(data.list);
-            removeAllChildNodes(ListDL);
-            for(elt of data.list) {
-                let elt_html = ListDL.appendChild(document.createElement("div"));
-                elt_html.textContent = elt;
-                elt_html.classList.add("bouton", "active");
-            }
-            for(i = 0; i < ListDL.children.length; i++) {
-                ListDL.children[i].addEventListener("click", (e) => {
-                    console.log(e.target.textContent);
-
-                    if (lastPersoneChose != null)
-                        lastPersoneChose.classList.remove("selected");
-
-                    e.target.classList.add("selected");
-                    peername = e.target.textContent;
-                    lastPersoneChose = e.target;
-
-                    DownloadDL.classList.add("active");
-                })
-            }
+        console.log(response);
+        if(response.ok) {
+            response.json().then(data => {
+                console.log(data.list);
+                removeAllChildNodes(ListDL);
+                for(elt of data.list) {
+                    let elt_html = ListDL.appendChild(document.createElement("div"));
+                    elt_html.textContent = elt;
+                    elt_html.classList.add("bouton", "active");
+                }
+                for(i = 0; i < ListDL.children.length; i++) {
+                    ListDL.children[i].addEventListener("click", (e) => {
+                        console.log(e.target.textContent);
+    
+                        if (lastPersoneChose != null)
+                            lastPersoneChose.classList.remove("selected");
+    
+                        e.target.classList.add("selected");
+                        peername = e.target.textContent;
+                        lastPersoneChose = e.target;
+    
+                        DownloadDL.classList.add("active");
+                    })
+                }
+                stopWait();
+                change(WaitBlock, DListBlock);
+            });
+        } else {
+            reset();
+            MsgBlock.textContent = "Error on getting the list :(";
+            change(WaitBlock, MsgBlock);
             stopWait();
-            change(WaitBlock, DListBlock);
-        })
+            setTimeout(() => change(MsgBlock, TitleBlock), 6000);
+        }
+        
     })
 }
 
@@ -165,21 +176,30 @@ function clickDownloadDL() {
         },
         body: JSON.stringify({peer: peername}),
     }).then(response => {
-        response.json().then(data => {
+        console.log(response);
+        if(response.ok) {
+            response.json().then(data => {
 
-            removeAllChildNodes(ContentTree);
-            content = "";
-            lastContentChose = null;
-
-            let elt_html = ContentTree.appendChild(document.createElement("ul"));
-            elt_html.classList.add("tree");
-
-            buildTree(data, elt_html, "");
-
-
+                removeAllChildNodes(ContentTree);
+                content = "";
+                lastContentChose = null;
+    
+                let elt_html = ContentTree.appendChild(document.createElement("ul"));
+                elt_html.classList.add("tree");
+    
+                buildTree(data, elt_html, "");
+    
+    
+                stopWait();
+                change(WaitBlock, TreeBlock);
+            });
+        } else {
+            reset();
+            MsgBlock.textContent = "Error on getting the peer's data :(";
             stopWait();
-            change(WaitBlock, TreeBlock);
-        });
+            change(WaitBlock, MsgBlock);
+            setTimeout(() => change(MsgBlock, TitleBlock), 6000);
+        }
     });
 
 }
@@ -217,9 +237,27 @@ function clickDownloadTR() {
         },
         body: JSON.stringify({path: content, peer:peername})
     }).then(response => {
-        console.log(response)
-        console.log("END DOWNLOAD");
-        stopWait();
-        change(WaitBlock, TreeBlock);
+        if(response.ok) {
+            console.log(response)
+            console.log("END DOWNLOAD");
+            stopWait();
+            change(WaitBlock, TreeBlock);
+        } else {
+            reset();
+            MsgBlock.textContent = "Error on download :(";
+            change(WaitBlock, MsgBlock);
+            stopWait();
+            setTimeout(() => change(MsgBlock, TitleBlock), 6000);
+        }
+
     })
+}
+
+function reset() {
+    lastContentChose = null;
+    lastPersoneChose = null;
+    peername = "";
+    content  = "";
+    DownloadDL.classList.remove("active");
+    DownloadTree.classList.remove("active");
 }

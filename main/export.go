@@ -134,7 +134,6 @@ func exportDirectory(path string) *ExportNode {
 		hashhash = append(hashhash, name[:]...)
 		hashhash = append(hashhash, node.Hash[:]...)
 	}
-	fmt.Println(hashhash)
 	hash := sha256.Sum256(hashhash)
 	node := buildExportNode(path, hash, 0, DIRECTORY)
 	node.Children = children

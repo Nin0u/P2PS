@@ -44,16 +44,19 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		fmt.Println("Error on handleExport :", r.Method)
 	}
-	path, _ := zenity.SelectFile(zenity.Filename("~"), zenity.Directory())
-	fmt.Println(path)
-	execExport(connG, []string{"export", path})
+	path, err := zenity.SelectFile(zenity.Filename("~"), zenity.Directory())
+	if err == nil {
+		fmt.Println(path)
+		execExport(connG, []string{"export", path})
+	}
 }
 
 func handlePeer(w http.ResponseWriter, r *http.Request) {
 	list, err := GetPeers(clientG)
 	if err != nil {
-		// TODO : renvoyer un truc à la page
-		fmt.Print("TODO")
+		fmt.Println("Error GetPeers !")
+		http.Error(w, err.Error(), 500)
+		return
 	}
 
 	peerMsg := PeerMsg{List: list[:]}
@@ -62,7 +65,7 @@ func handlePeer(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(peerMsg)
 
 	if err != nil {
-		fmt.Println("Error !")
+		fmt.Println("Error encode !")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -83,17 +86,17 @@ func handlePeerData(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("PeerName :", m.PeerName)
 	// TODO use errors
-	execGetData(clientG, connG, []string{"data", m.PeerName})
-
-	cache_peers.mutex.Lock()
-	index := FindCachedPeerByName(m.PeerName)
-	root := cache_peers.list[index].Root
-	cache_peers.mutex.Unlock()
+	p, err := execGetData(clientG, connG, []string{"data", m.PeerName})
+	if err != nil {
+		fmt.Println("Error data !", err.Error())
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	err := json.NewEncoder(w).Encode(root)
+	err = json.NewEncoder(w).Encode(p.Root)
 	if err != nil {
-		fmt.Println("Error !", err.Error())
+		fmt.Println("Error Encode !", err.Error())
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -111,8 +114,12 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fmt.Println("PATH", m.Path)
-	// TODO : use error
-	execGetDataDL(clientG, connG, []string{"data_dl", m.PeerName, m.Path})
+	err := execGetDataDL(clientG, connG, []string{"data_dl", m.PeerName, m.Path})
+	if err != nil {
+		fmt.Println("Error DL", err.Error())
+		http.Error(w, err.Error(), 500)
+		return
+	}
 }
 
 func gui(client *http.Client, conn net.PacketConn) {
