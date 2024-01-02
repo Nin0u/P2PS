@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +18,7 @@ import (
 
 var debug bool = false
 var username string = ""
+var open_gui = false
 
 var timeout_datum_clear, _ = time.ParseDuration("30s")
 var sleep_time, _ = time.ParseDuration("30s")
@@ -139,6 +142,26 @@ func Recv(client *http.Client, conn net.PacketConn) {
 	}
 }
 
+// ! Taken from https://gist.github.com/sevkin/9798d67b2cb9d07cb05f89f14ba682f8
+// https://stackoverflow.com/questions/39320371/how-start-web-server-to-open-page-in-browser-in-golang
+// open opens the specified URL in the default browser of the user.
+func open(url string) error {
+	var cmd string
+	var args []string
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = "cmd"
+		args = []string{"/c", "start"}
+	case "darwin":
+		cmd = "open"
+	default: // "linux", "freebsd", "openbsd", "netbsd"
+		cmd = "xdg-open"
+	}
+	args = append(args, url)
+	return exec.Command(cmd, args...).Start()
+}
+
 func main() {
 	path := ""
 
@@ -180,6 +203,8 @@ func main() {
 			fmt.Println("--export=<path>		Setup export path")
 			fmt.Println("--help			Show help")
 			return
+		} else if args[i] == "--gui" {
+			open_gui = true
 		}
 	}
 
@@ -204,6 +229,9 @@ func main() {
 	}
 
 	go Recv(client, conn)
-	go gui(client, conn)
+	if open_gui {
+		go gui(client, conn)
+		open("http://localhost:8080/")
+	}
 	cli(client, conn)
 }

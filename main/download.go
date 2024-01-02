@@ -105,7 +105,7 @@ func Explore(conn net.PacketConn, p *Peer) error {
 		value := RecupDatum(conn, &req, p)
 		//Error
 		if value == nil {
-			return errors.New("Error RecupDatum")
+			return errors.New("error RecupDatum")
 		}
 
 		typeFile := value[0]
@@ -307,7 +307,7 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 		for i := 0; i < nb; i++ {
 			if len(buffs[i]) > 0 && buffs[i][0].Info == -1 {
 				color.Red("[DownloadMulti] Error no value\n")
-				return errors.New("Error no value !")
+				return errors.New("error no value")
 			}
 			reqDatum = append(reqDatum, buffs[i]...)
 		}
@@ -330,12 +330,12 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 				file, err := os.OpenFile(req.Path, os.O_WRONLY|os.O_CREATE, os.ModePerm)
 				if err != nil {
 					color.Red("[DownloadMulti] Error open file : %s\n", err.Error())
-					return errors.New("Error open")
+					return errors.New("error open")
 				}
 				_, err = file.WriteAt(value, req.Count)
 				if err != nil {
 					color.Red("[DownloadMulti] Error writeAt : %s\n", err.Error())
-					return errors.New("Error writeAt")
+					return errors.New("error writeAt")
 				}
 
 				if len(reqDatum) > 0 && reqDatum[len(reqDatum)-1].Path == req.Path {
