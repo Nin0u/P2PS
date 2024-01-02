@@ -167,7 +167,9 @@ func export(path string) error {
 		//If it's a file, we have to create a parent folder
 		hashhash := make([]byte, 0)
 		hashhash = append(hashhash, DIRECTORY)
-		hashhash = append(hashhash, []byte(info.Name())...)
+		name := make([]byte, 32)
+		copy(name[:], []byte(info.Name()))
+		hashhash = append(hashhash, name[:]...)
 		hashhash = append(hashhash, rootExport.Hash[:]...)
 		hash := sha256.Sum256(hashhash)
 		node := buildExportNode("", hash, 0, DIRECTORY)
