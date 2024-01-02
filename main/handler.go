@@ -198,7 +198,7 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 
 	// Length Checking
 	l := getLength(message)
-	if int(l)+7 >= nb_byte {
+	if int(l)+7 > nb_byte {
 		color.Cyan("[HandleDatum] Invalid Length : Expected at least %d, got %d\n", nb_byte, l+7)
 		return
 	}
@@ -270,7 +270,7 @@ func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sende
 
 func HandleNatTraversal(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	l := getLength(message)
-	if int(l)+7 >= nb_byte {
+	if int(l)+7 > nb_byte {
 		color.Magenta("[HandleGetDatum] Invalid Length : Expected %d, got %d\n", nb_byte, l)
 		return
 	}
