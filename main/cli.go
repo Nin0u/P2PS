@@ -181,7 +181,7 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 		execGetData(client, conn, words)
 
 	case "data_dl":
-		execGetDataDL(client, conn, words)
+		execGetDataDL(client, conn, words, "")
 
 	case "export":
 		execExport(conn, words)
@@ -323,14 +323,18 @@ func execGetData(client *http.Client, conn net.PacketConn, words []string) (*Pee
 
 	if p.Root == nil || [32]byte(hash) != p.Root.Hash {
 		p.Root = BuildNode(p.Name, [32]byte(hash), DIRECTORY)
-		Explore(conn, p)
+		err = Explore(conn, p)
+		if err != nil {
+			p.Root = nil
+			return nil, err
+		}
 	}
 
 	PrintNode(p.Root, "")
 	return p, nil
 }
 
-func execGetDataDL(client *http.Client, conn net.PacketConn, words []string) error {
+func execGetDataDL(client *http.Client, conn net.PacketConn, words []string, prefix string) error {
 	if len(words) != 2 && len(words) != 3 {
 		return errors.New("wrong number of argument")
 	}
@@ -359,28 +363,35 @@ func execGetDataDL(client *http.Client, conn net.PacketConn, words []string) err
 
 	if p.Root == nil || p.Root.Hash != [32]byte(hash) {
 		p.Root = BuildNode(p.Name, [32]byte(hash), DIRECTORY)
-		Explore(conn, p)
+		err = Explore(conn, p)
 		PrintNode(p.Root, "")
+		if err != nil {
+			p.Root = nil
+		}
 		return errors.New("tree has been updated. Please reboot the download")
 	}
 
+	start_hash := p.Root.Hash
+	path := p.Name
 	if len(words) == 3 {
-		path := strings.Split(words[2], "/")
-		start_hash, err := FindPath(p.Root, path[1:])
+		path_tab := strings.Split(words[2], "/")
+		start_hash, err = FindPath(p.Root, path_tab[1:])
 		if err != nil {
 			return err
 		}
-		if len(path) > 1 {
-			real_path := strings.Join(path[:len(path)-1], "/")
-			err = os.MkdirAll(real_path, os.ModePerm)
-			if err != nil {
-				return err
-			}
-		}
-		download_multi(conn, p, start_hash, strings.Join(path, "/"))
-	} else {
-		download_multi(conn, p, [32]byte(hash), p.Name)
+		path = words[2]
 	}
+
+	path = prefix + "/" + path
+	path_tab := strings.Split(path, "/")
+	if len(path_tab) > 1 {
+		real_path := strings.Join(path_tab[:len(path_tab)-1], "/")
+		err = os.MkdirAll(real_path, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+	download_multi(conn, p, start_hash, strings.Join(path_tab, "/"))
 
 	fmt.Println("DONE !")
 	return nil

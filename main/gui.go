@@ -114,7 +114,10 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fmt.Println("PATH", m.Path)
-	err := execGetDataDL(clientG, connG, []string{"data_dl", m.PeerName, m.Path})
+	path, err := zenity.SelectFile(zenity.Filename("~"), zenity.Directory())
+	fmt.Println(path)
+	err = execGetDataDL(clientG, connG, []string{"data_dl", m.PeerName, m.Path}, path)
+
 	if err != nil {
 		fmt.Println("Error DL", err.Error())
 		http.Error(w, err.Error(), 500)

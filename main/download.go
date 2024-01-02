@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -90,7 +91,7 @@ func RecupDatum(conn net.PacketConn, req *RequestDatum, p *Peer) []byte {
 	return value
 }
 
-func Explore(conn net.PacketConn, p *Peer) {
+func Explore(conn net.PacketConn, p *Peer) error {
 	reqDatum := make([]RequestDatum, 0)
 	reqDatum = append(reqDatum, buildRequestDatum(p.Name, p.Root.Hash, 0))
 
@@ -104,7 +105,7 @@ func Explore(conn net.PacketConn, p *Peer) {
 		value := RecupDatum(conn, &req, p)
 		//Error
 		if value == nil {
-			return
+			return errors.New("Error RecupDatum")
 		}
 
 		typeFile := value[0]
@@ -142,6 +143,7 @@ func Explore(conn net.PacketConn, p *Peer) {
 			}
 		}
 	}
+	return nil
 }
 
 func Download(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path string) {
@@ -273,7 +275,7 @@ func download_multi_aux(conn net.PacketConn, req *RequestDatum, p *Peer) []Reque
 	return buff
 }
 
-func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path string) {
+func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_path string) error {
 	const max_request = 32
 
 	reqDatum := make([]RequestDatum, 0)
@@ -305,7 +307,7 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 		for i := 0; i < nb; i++ {
 			if len(buffs[i]) > 0 && buffs[i][0].Info == -1 {
 				color.Red("[DownloadMulti] Error no value\n")
-				return
+				return errors.New("Error no value !")
 			}
 			reqDatum = append(reqDatum, buffs[i]...)
 		}
@@ -328,12 +330,12 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 				file, err := os.OpenFile(req.Path, os.O_WRONLY|os.O_CREATE, os.ModePerm)
 				if err != nil {
 					color.Red("[DownloadMulti] Error open file : %s\n", err.Error())
-					return
+					return errors.New("Error open")
 				}
 				_, err = file.WriteAt(value, req.Count)
 				if err != nil {
 					color.Red("[DownloadMulti] Error writeAt : %s\n", err.Error())
-					return
+					return errors.New("Error writeAt")
 				}
 
 				if len(reqDatum) > 0 && reqDatum[len(reqDatum)-1].Path == req.Path {
@@ -345,4 +347,5 @@ func download_multi(conn net.PacketConn, p *Peer, first_hash [32]byte, start_pat
 			}
 		}
 	}
+	return nil
 }
