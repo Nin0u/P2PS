@@ -201,6 +201,7 @@ func main() {
 			fmt.Println("--debug             	Launch debug mode")
 			fmt.Println("--usename=<username>	Setup username")
 			fmt.Println("--export=<path>		Setup export path")
+			fmt.Println("--gui			Launch the GUI")
 			fmt.Println("--help			Show help")
 			return
 		} else if args[i] == "--gui" {
