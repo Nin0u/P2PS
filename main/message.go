@@ -278,8 +278,6 @@ func sendNoDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32) (i
 	return message.Id, err
 }
 
-// TODO : Ajouter name dans export et ne plus faire le strings.split car c'est source d'erreur
-// TODO : Verrou sur la map export (handleDatum) ???
 func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node *ExportNode) (int32, error) {
 	if debug_message {
 		fmt.Println("[sendDatum] Called")
@@ -336,7 +334,6 @@ func GetServerAddrs() ([]net.Addr, error) {
 	if index == -1 {
 		color.Red("[getServerAddrs] Error finding server name")
 		cache_peers.mutex.Unlock()
-		// TODO : regarder si -1 ok avec execsendhello
 		return nil, errors.New("finding server name")
 	}
 	addrs_server := make([]net.Addr, len(cache_peers.list[index].Addr))

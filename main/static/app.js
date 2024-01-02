@@ -22,8 +22,6 @@ var ContentTree = document.getElementById("Content");
 var content = "";
 var lastContentChose = null;
 
-//TODO: handle error (si le peername n existe pas / si le file n existe pas / si le serveur ne réponds pas)
-
 ExportButton.addEventListener("click", clickExport);
 DownloadButton.addEventListener("click", clickDownload)
 
