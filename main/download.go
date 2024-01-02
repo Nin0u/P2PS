@@ -28,7 +28,7 @@ type DatumCache struct {
 var datumCache DatumCache = DatumCache{content: make(map[[32]byte]Data)}
 var debug_download = false
 
-// TODO : On part pour l'instant du principe que la taille  est limitée par le temps mais à voir avec le multi DL
+// We suppose that the size of the cache is bounded by the time
 func AddDatumCache(hash [32]byte, value []byte) {
 	DatumCacheClearer()
 	datumCache.mutex.Lock()

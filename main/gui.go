@@ -85,7 +85,6 @@ func handlePeerData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println("PeerName :", m.PeerName)
-	// TODO use errors
 	p, err := execGetData(clientG, connG, []string{"data", m.PeerName})
 	if err != nil {
 		fmt.Println("Error data !", err.Error())
@@ -114,12 +113,9 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fmt.Println("PATH", m.Path)
-	path, err := zenity.SelectFile(zenity.Filename("~"), zenity.Directory())
-	if err != nil {
-		// TODO
-	}
+	path, _ := zenity.SelectFile(zenity.Filename("~"), zenity.Directory())
 	fmt.Println(path)
-	err = execGetDataDL(clientG, connG, []string{"data_dl", m.PeerName, m.Path}, path)
+	err := execGetDataDL(clientG, connG, []string{"data_dl", m.PeerName, m.Path}, path)
 
 	if err != nil {
 		fmt.Println("Error DL", err.Error())
