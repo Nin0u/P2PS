@@ -13,6 +13,7 @@ import (
 
 type ExportNode struct {
 	Path     string
+	Name     string
 	Hash     [32]byte
 	Num      int64
 	Children []*ExportNode
@@ -127,6 +128,7 @@ func exportDirectory(path string) *ExportNode {
 		} else {
 			node = exportFile(path + "/" + e.Name())
 		}
+		node.Name = e.Name()
 
 		children = append(children, node)
 		name := [32]byte{}
@@ -161,6 +163,7 @@ func export(path string) error {
 		rootExport = exportDirectory(path)
 	} else {
 		rootExport = exportFile(path)
+		rootExport.Name = info.Name()
 		//If it's a file, we have to create a parent folder
 		hashhash := make([]byte, 0)
 		hashhash = append(hashhash, DIRECTORY)

@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/netip"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -298,11 +297,10 @@ func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node
 	message.Body = append(message.Body, node.Type)
 	if node.Type == DIRECTORY {
 		for i := 0; i < len(node.Children); i++ {
-			path := strings.Split(node.Children[i].Path, "/")
 			name := [32]byte{}
-			copy(name[:], path[len(path)-1])
+			copy(name[:], []byte(node.Children[i].Name))
 			if debug_message {
-				fmt.Println("[sendDatum] Name :", name)
+				fmt.Println("[sendDatum] Name :", node.Children[i].Name)
 			}
 			message.Body = append(message.Body, name[:]...)
 			message.Body = append(message.Body, node.Children[i].Hash[:]...)

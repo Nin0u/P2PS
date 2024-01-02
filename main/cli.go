@@ -181,7 +181,7 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 		execGetData(client, conn, words)
 
 	case "data_dl":
-		execGetDataDL(client, conn, words, "")
+		execGetDataDL(client, conn, words, ".")
 
 	case "export":
 		execExport(conn, words)
