@@ -106,9 +106,14 @@ func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_send
 		fmt.Println("[HandlePublicKey] Triggered")
 	}
 
-	len := getLength(message)
-	data := message[:7+len]
-	signature := message[7+len : nb_byte]
+	// Length Checking
+	l := getLength(message)
+	if l != 64 {
+		color.Cyan("[HandlePublicKey] Invalid Length : Expected 64, got %d\n", l)
+		return
+	}
+	data := message[:7+l]
+	signature := message[7+l : nb_byte]
 
 	key := make([]byte, 64)
 	cache_peers.mutex.Lock()
@@ -141,9 +146,14 @@ func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender ne
 		fmt.Println("[HandleRoot] Triggered")
 	}
 
-	len := getLength(message)
-	data := message[:7+len]
-	signature := message[7+len : nb_byte]
+	// Length Checking
+	l := getLength(message)
+	if l != 32 {
+		color.Cyan("[HandleRoot] Invalid Length : Expected 32, got %d\n", l)
+		return
+	}
+	data := message[:7+l]
+	signature := message[7+l : nb_byte]
 
 	key := make([]byte, 64)
 	cache_peers.mutex.Lock()
@@ -186,6 +196,13 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 		fmt.Println("[HandleDatum] Datum Received id :", getID(message))
 	}
 
+	// Length Checking
+	l := getLength(message)
+	if int(l)+7 >= nb_byte {
+		color.Cyan("[HandleDatum] Invalid Length : Expected at least %d, got %d\n", nb_byte, l+7)
+		return
+	}
+
 	hash := make([]byte, 32)
 	value := make([]byte, getLength(message)-32)
 
@@ -207,7 +224,14 @@ func HandleDatum(message []byte, nb_byte int, addr_sender net.Addr, conn net.Pac
 func HandleNoDatum(message []byte, nb_byte int, addr_sender net.Addr) {
 	defer sync_map.Unblock(getID(message))
 
-	hash := message[7 : 7+32]
+	// Length Checking
+	l := getLength(message)
+	if l != 32 {
+		color.Cyan("[HandleNoDatum] Invalid Length : Expected 32, got %d\n", l)
+		return
+	}
+
+	hash := message[7 : 7+l]
 	if debug_handler {
 		color.Magenta("[handleNoDatum] NoDatum for the hash : %x\n", hash)
 	}
@@ -220,9 +244,9 @@ func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sende
 		fmt.Println("[HandleGetDatum] GetDatum Received id :", getID(message))
 	}
 
-	len := getLength(message)
-	if len != 32 {
-		color.Magenta("[HandleGetDatum] Error on the length !")
+	l := getLength(message)
+	if l != 32 {
+		color.Magenta("[HandleGetDatum] Invalid Length : Expected 32, got %d\n", l)
 		return
 	}
 
@@ -244,11 +268,15 @@ func HandleGetDatum(conn net.PacketConn, message []byte, nb_byte int, addr_sende
 	sendDatum(conn, addr_sender, [32]byte(hash), getID(message), node)
 }
 
-// TODO : Check les lenght sur TOUS les handlers
 func HandleNatTraversal(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
+	l := getLength(message)
+	if int(l)+7 >= nb_byte {
+		color.Magenta("[HandleGetDatum] Invalid Length : Expected %d, got %d\n", nb_byte, l)
+		return
+	}
+
 	//Parse Addr
-	addr_byte := message[7 : 7+getLength(message)]
-	fmt.Println("nb_byte = ", nb_byte)
+	addr_byte := message[7 : 7+l]
 	if debug_handler {
 		fmt.Println("[HandleNatTraversal] addr_byte =", addr_byte)
 	}
@@ -272,6 +300,39 @@ func HandleNatTraversal(conn net.PacketConn, message []byte, nb_byte int, addr_s
 func HandleRootReply(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	defer sync_map.Unblock(getID(message))
 
-	// TODO : juste check qu'il a bien envoyé un hash (len) mais on fait rien avec
-	// TODO : check signature aussi
+	// Length Checking
+	l := getLength(message)
+	if l != 32 {
+		color.Cyan("[HandleRootReply] Invalid Length : Expected 32, got %d\n", l)
+		return
+	}
+
+	// Signature Checking
+	cache_peers.mutex.Lock()
+	index_peer := FindCachedPeerByAddr(addr_sender)
+
+	var key []byte
+	// I don't know the peer
+	if index_peer == -1 {
+		cache_peers.mutex.Unlock()
+		if debug_handler {
+			color.Magenta("[HandleRootReply] Didn't find peer in cache\n")
+		}
+		return
+	} else {
+		key = make([]byte, 64)
+		copy(key, cache_peers.list[index_peer].PublicKey[:])
+		cache_peers.mutex.Unlock()
+	}
+
+	data := message[:7+l]
+	signature := message[7+l : nb_byte]
+	if VerifySignature(key, data, signature) {
+		return
+	} else {
+		if debug_handler {
+			color.Magenta("[HandleRootReply] Invalid signature\n")
+		}
+		return
+	}
 }

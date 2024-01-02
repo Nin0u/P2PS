@@ -159,7 +159,7 @@ func main() {
 			debug_message = true
 			debug_signature = true
 			debug_export = true
-		} else if args[i][:11] == "--username=" {
+		} else if len(args[i]) >= 11 && args[i][:11] == "--username=" {
 			flag_username = true
 			name := strings.Trim(args[i][11:], " ")
 			if len(name) != 0 {
@@ -168,14 +168,18 @@ func main() {
 				fmt.Println("Username should not be empty !")
 				return
 			}
-		} else if args[i][:9] == "--export=" {
+		} else if len(args[i]) > 9 && args[i][:9] == "--export=" {
 			p := strings.Trim(args[i][9:], " ")
 			if len(p) != 0 {
 				path = p
 			}
-		} else if args[i][:6] == "--help" {
-			// TODO
-			fmt.Println("TODO")
+		} else if args[i] == "--help" {
+			fmt.Println("Here are the options :")
+			fmt.Println("--debug             	Launch debug mode")
+			fmt.Println("--usename=<username>	Setup username")
+			fmt.Println("--export=<path>		Setup export path")
+			fmt.Println("--help			Show help")
+			return
 		}
 	}
 

@@ -127,8 +127,6 @@ func FindCachedPeerByAddr(addr net.Addr) int {
 	return -1
 }
 
-// TODO : renvoyer index sert à qq chose ?
-// TODO : Vérifier que les fins sont bien encapsulés dans des locks
 func CheckHandShake(addr_sender net.Addr) error {
 	if debug_peer {
 		fmt.Println("[CheckHandShake] addr:", addr_sender)
