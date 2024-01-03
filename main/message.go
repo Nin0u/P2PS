@@ -103,17 +103,16 @@ func getLength(m []byte) uint16 {
 func ComputeRTO(conn net.PacketConn, addr net.Addr) time.Duration {
 	RTT := 2 * time.Second
 	RTTvar := 0 * time.Second
-	alpha := 7 * time.Second / 8
-	beta := 3 * time.Second / 8
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		start_t := time.Now()
 		sendHello(conn, addr, false)
 		end_t := time.Now()
+
 		to := end_t.Sub(start_t)
 		delta := (to - RTT).Abs()
-		RTT = alpha*RTT + (1-alpha)*to
-		RTTvar = beta*RTTvar + (1-beta)*delta
+		RTT = (time.Duration(7)*RTT + time.Duration(1)*to) / time.Duration(8)
+		RTTvar = (time.Duration(3)*RTTvar + time.Duration(5)*delta) / time.Duration(8)
 	}
 
 	return RTT + (4 * RTTvar)

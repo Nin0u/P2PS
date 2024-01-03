@@ -50,20 +50,22 @@ func BuildPeer(c *http.Client, message []byte, addr_sender net.Addr, key []byte)
 	return p
 }
 
-func (p *Peer) AddAddr(addr AddrRTO) {
+func (p *Peer) AddAddr(addr AddrRTO) bool {
 	for i := 0; i < len(p.Addr); i++ {
 		if addr.Addr.String() == p.Addr[i].Addr.String() {
-			return
+			return false
 		}
 	}
 
 	p.Addr = append(p.Addr, addr)
+	return true
 }
 
 func (p *Peer) AddRTO(addr net.Addr, rto time.Duration) {
 	for i := 0; i < len(p.Addr); i++ {
 		if addr.String() == p.Addr[i].Addr.String() {
 			p.Addr[i].RTO = rto
+
 			return
 		}
 	}
@@ -102,7 +104,7 @@ func AddCachedPeer(p Peer) bool {
 		}
 
 		for i := 0; i < len(p.Addr); i++ {
-			(&cache_peers.list[index]).AddAddr(p.Addr[i])
+			flag = (&cache_peers.list[index]).AddAddr(p.Addr[i])
 		}
 		cache_peers.list[index].LastMessageTime = p.LastMessageTime
 		cache_peers.mutex.Unlock()

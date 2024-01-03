@@ -90,9 +90,13 @@ func Recv(client *http.Client, conn net.PacketConn) {
 
 		// Treat Hello separately because it handles handshake between peers
 		if t == Hello {
-			HandleHello(client, conn, message, nb_byte, addr_sender)
+			message_bis := make([]byte, nb_byte)
+			copy(message_bis, message)
+			go HandleHello(client, conn, message_bis, nb_byte, addr_sender)
 		} else if t == HelloReply {
-			HandleHelloReply(client, conn, message, nb_byte, addr_sender)
+			message_bis := make([]byte, nb_byte)
+			copy(message_bis, message)
+			go HandleHelloReply(client, conn, message_bis, nb_byte, addr_sender)
 		} else {
 			err := CheckHandShake(addr_sender)
 			if err != nil {
