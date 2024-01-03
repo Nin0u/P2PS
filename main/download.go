@@ -68,7 +68,7 @@ func RecupDatum(conn net.PacketConn, req *RequestDatum, p *Peer) []byte {
 
 	if !ok {
 		// TODO : on choisit quelle addr du pair ??? J'ai mis [0] pour l'instant
-		_, err := sendGetDatum(conn, p.Addr[0], req.Hash)
+		_, err := sendGetDatum(conn, p.Addr[0].Addr, req.Hash)
 
 		if err != nil {
 			color.Red("[RecupDatum] Error send getDatum : %s\n", err.Error())

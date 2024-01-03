@@ -50,7 +50,6 @@ func datumCacheClearer() {
 		datumCache.mutex.Lock()
 		for k, v := range datumCache.content {
 			if current_time.Sub(v.LastTimeUsed) > timeout_datum_clear {
-				// fmt.Printf("[DatumCacheClearer] clearing data with hash %x\n", k)
 				delete(datumCache.content, k)
 			}
 		}
@@ -62,7 +61,7 @@ func ConnKeeper(client *http.Client, conn net.PacketConn, addrs []net.Addr) {
 	for {
 		time.Sleep(sleep_time)
 		for i := len(addrs) - 1; i > -1; i-- {
-			err := sendHello(conn, addrs[i], username, false)
+			err := sendHello(conn, addrs[i], false)
 			if err != nil {
 				color.Red("[ConnKeeper] Error while sending hello to %s : %s\n ", addrs[i].String(), err.Error())
 				addrs = append(addrs[:i], addrs[i+1:]...)
@@ -91,9 +90,9 @@ func Recv(client *http.Client, conn net.PacketConn) {
 
 		// Treat Hello separately because it handles handshake between peers
 		if t == Hello {
-			HandleHello(client, conn, message, nb_byte, addr_sender, username)
+			HandleHello(client, conn, message, nb_byte, addr_sender)
 		} else if t == HelloReply {
-			HandleHelloReply(client, message, nb_byte, addr_sender)
+			HandleHelloReply(client, conn, message, nb_byte, addr_sender)
 		} else {
 			err := CheckHandShake(addr_sender)
 			if err != nil {

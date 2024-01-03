@@ -11,9 +11,14 @@ import (
 	"github.com/fatih/color"
 )
 
+type AddrRTO struct {
+	Addr net.Addr
+	RTO  time.Duration
+}
+
 type Peer struct {
 	Name            string
-	Addr            []net.Addr
+	Addr            []AddrRTO
 	PublicKey       [64]byte
 	LastMessageTime time.Time
 	Root            *Node
@@ -36,8 +41,8 @@ func BuildPeer(c *http.Client, message []byte, addr_sender net.Addr, key []byte)
 		p.PublicKey = [64]byte(key)
 	}
 
-	p.Addr = make([]net.Addr, 0)
-	p.Addr = append(p.Addr, addr_sender)
+	p.Addr = make([]AddrRTO, 0)
+	p.Addr = append(p.Addr, AddrRTO{Addr: addr_sender, RTO: time.Second})
 
 	if debug_peer {
 		fmt.Printf("[BuildPeer] Building a new peer with name %s\n", name_sender)
@@ -45,14 +50,23 @@ func BuildPeer(c *http.Client, message []byte, addr_sender net.Addr, key []byte)
 	return p
 }
 
-func AddAddrToPeer(p *Peer, addr net.Addr) {
+func (p *Peer) AddAddr(addr AddrRTO) {
 	for i := 0; i < len(p.Addr); i++ {
-		if addr.String() == p.Addr[i].String() {
+		if addr.Addr.String() == p.Addr[i].Addr.String() {
 			return
 		}
 	}
 
 	p.Addr = append(p.Addr, addr)
+}
+
+func (p *Peer) AddRTO(addr net.Addr, rto time.Duration) {
+	for i := 0; i < len(p.Addr); i++ {
+		if addr.String() == p.Addr[i].Addr.String() {
+			p.Addr[i].RTO = rto
+			return
+		}
+	}
 }
 
 func PrintCachedPeers() {
@@ -62,9 +76,10 @@ func PrintCachedPeers() {
 }
 
 // Tries to find the peer's name in cache.
-// If not found adds it
-// If found updates its addresses and LastMessageTime
-func AddCachedPeer(p Peer) {
+// If not found adds it and return true
+// If found updates its addresses and LastMessageTime and return false
+func AddCachedPeer(p Peer) bool {
+	flag := false
 	if debug_peer {
 		cache_peers.mutex.Lock()
 		fmt.Println("[AddCachedPeer] Old Cached Peers")
@@ -80,13 +95,14 @@ func AddCachedPeer(p Peer) {
 		}
 		cache_peers.list = append(cache_peers.list[:], p)
 		cache_peers.mutex.Unlock()
+		flag = true
 	} else {
 		if debug_peer {
 			fmt.Printf("[AddCachedPeer] %s already in cache. Updating its values\n", p.Name)
 		}
 
 		for i := 0; i < len(p.Addr); i++ {
-			AddAddrToPeer(&cache_peers.list[index], p.Addr[i])
+			(&cache_peers.list[index]).AddAddr(p.Addr[i])
 		}
 		cache_peers.list[index].LastMessageTime = p.LastMessageTime
 		cache_peers.mutex.Unlock()
@@ -98,6 +114,8 @@ func AddCachedPeer(p Peer) {
 		PrintCachedPeers()
 		cache_peers.mutex.Unlock()
 	}
+
+	return flag
 }
 
 func RemoveCachedPeer(index int) {
@@ -116,15 +134,17 @@ func FindCachedPeerByName(name string) int {
 	return -1
 }
 
-func FindCachedPeerByAddr(addr net.Addr) int {
+// The first int is the index of the peer
+// The second is the index of the address in the peers' addresses
+func FindCachedPeerByAddr(addr net.Addr) (int, int) {
 	for i := 0; i < len(cache_peers.list); i++ {
 		for j := 0; j < len(cache_peers.list[i].Addr); j++ {
-			if cache_peers.list[i].Addr[j].String() == addr.String() {
-				return i
+			if cache_peers.list[i].Addr[j].Addr.String() == addr.String() {
+				return i, j
 			}
 		}
 	}
-	return -1
+	return -1, -1
 }
 
 func CheckHandShake(addr_sender net.Addr) error {
@@ -135,7 +155,7 @@ func CheckHandShake(addr_sender net.Addr) error {
 	cache_peers.mutex.Lock()
 	defer cache_peers.mutex.Unlock()
 
-	index := FindCachedPeerByAddr(addr_sender)
+	index, _ := FindCachedPeerByAddr(addr_sender)
 	if index == -1 {
 		if debug_peer {
 			color.Magenta("[CheckHandShake] Handshake error\n")

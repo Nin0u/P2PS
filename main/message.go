@@ -100,11 +100,30 @@ func getLength(m []byte) uint16 {
 	return uint16(m[5])<<8 + uint16(m[6])
 }
 
-func sendHello(conn net.PacketConn, addr net.Addr, name string, send_NT bool) error {
+func ComputeRTO(conn net.PacketConn, addr net.Addr) time.Duration {
+	RTT := 2 * time.Second
+	RTTvar := 0 * time.Second
+	alpha := 7 * time.Second / 8
+	beta := 3 * time.Second / 8
+
+	for i := 0; i < 10; i++ {
+		start_t := time.Now()
+		sendHello(conn, addr, false)
+		end_t := time.Now()
+		to := end_t.Sub(start_t)
+		delta := (to - RTT).Abs()
+		RTT = alpha*RTT + (1-alpha)*to
+		RTTvar = beta*RTTvar + (1-beta)*delta
+	}
+
+	return RTT + (4 * RTTvar)
+}
+
+func sendHello(conn net.PacketConn, addr net.Addr, send_NT bool) error {
 	if debug_message {
 		fmt.Println("[sendHello] Called")
 	}
-	len_name := len(name)
+	len_name := len(username)
 	message := Message{
 		Id:      id.get(),
 		Dest:    addr,
@@ -114,7 +133,14 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string, send_NT bool) er
 		Timeout: time.Second,
 	}
 
-	copy(message.Body[4:], name)
+	cache_peers.mutex.Lock()
+	index_peer, index_addr := FindCachedPeerByAddr(addr)
+	if index_peer != -1 {
+		message.Timeout = cache_peers.list[index_peer].Addr[index_addr].RTO
+	}
+	cache_peers.mutex.Unlock()
+
+	copy(message.Body[4:], username)
 	sign := computeSignature(message.build())
 	message.Signature = sign
 	if debug_message {
@@ -150,11 +176,11 @@ func sendHello(conn net.PacketConn, addr net.Addr, name string, send_NT bool) er
 	return nil
 }
 
-func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (int32, error) {
+func sendHelloReply(conn net.PacketConn, addr net.Addr, id int32) (int32, error) {
 	if debug_message {
 		fmt.Println("[sendHelloReply] Called")
 	}
-	len := len(name)
+	len := len(username)
 	message := Message{
 		Id:     id,
 		Dest:   addr,
@@ -163,7 +189,7 @@ func sendHelloReply(conn net.PacketConn, addr net.Addr, name string, id int32) (
 		Body:   make([]byte, len+4),
 	}
 
-	copy(message.Body[4:], name)
+	copy(message.Body[4:], username)
 	sign := computeSignature(message.build())
 	message.Signature = sign
 
@@ -245,6 +271,13 @@ func sendGetDatum(conn net.PacketConn, addr net.Addr, hash [32]byte) (int, error
 		Body:    make([]byte, 32),
 		Timeout: time.Second,
 	}
+
+	cache_peers.mutex.Lock()
+	index_peer, index_addr := FindCachedPeerByAddr(addr)
+	if index_peer != -1 {
+		message.Timeout = cache_peers.list[index_peer].Addr[index_addr].RTO
+	}
+	cache_peers.mutex.Unlock()
 
 	if debug_message {
 		fmt.Printf("[sendGetDatum] id = %d hash = %x\n", message.Id, hash)
@@ -328,7 +361,7 @@ func sendDatum(conn net.PacketConn, addr net.Addr, hash [32]byte, id int32, node
 	return message.Id, err
 }
 
-func GetServerAddrs() ([]net.Addr, error) {
+func GetServerAddrs() ([]AddrRTO, error) {
 	cache_peers.mutex.Lock()
 	index := FindCachedPeerByName(server_name_peer)
 	if index == -1 {
@@ -336,7 +369,7 @@ func GetServerAddrs() ([]net.Addr, error) {
 		cache_peers.mutex.Unlock()
 		return nil, errors.New("finding server name")
 	}
-	addrs_server := make([]net.Addr, len(cache_peers.list[index].Addr))
+	addrs_server := make([]AddrRTO, len(cache_peers.list[index].Addr))
 	copy(addrs_server, cache_peers.list[index].Addr)
 	cache_peers.mutex.Unlock()
 
@@ -363,14 +396,14 @@ func sendAllNatRequest(conn net.PacketConn, addr_peer net.Addr) error {
 	return e
 }
 
-func sendNatRequest(conn net.PacketConn, addr_peer net.Addr, addr_server net.Addr) (int, error) {
+func sendNatRequest(conn net.PacketConn, addr_peer net.Addr, addr_server AddrRTO) (int, error) {
 	message := Message{
 		Id:      id.get(),
 		Type:    NatTraversalRequest,
-		Timeout: time.Second,
+		Timeout: addr_server.RTO,
 	}
 
-	message.Dest = addr_server
+	message.Dest = addr_server.Addr
 
 	ip, err := netip.ParseAddrPort(addr_peer.String())
 	if err != nil {
@@ -391,16 +424,15 @@ func sendNatRequest(conn net.PacketConn, addr_peer net.Addr, addr_server net.Add
 		message.print()
 	}
 
-	return nat_sync_map.Reemit(conn, addr_server, &message, addr_peer, 3)
+	return nat_sync_map.Reemit(conn, addr_server.Addr, &message, addr_peer, 3)
 }
 
 func sendRoot(conn net.PacketConn) error {
 	message := Message{
-		Id:      id.get(),
-		Type:    Root,
-		Body:    make([]byte, 32),
-		Length:  32,
-		Timeout: time.Second,
+		Id:     id.get(),
+		Type:   Root,
+		Body:   make([]byte, 32),
+		Length: 32,
 	}
 
 	map_export.Mutex.Lock()
@@ -421,7 +453,8 @@ func sendRoot(conn net.PacketConn) error {
 	message.Signature = sign
 
 	for i := 0; i < len(addrs_server); i++ {
-		_, err := sync_map.Reemit(conn, addrs_server[i], &message, message.Id, 3)
+		message.Timeout = addrs_server[i].RTO
+		_, err := sync_map.Reemit(conn, addrs_server[i].Addr, &message, message.Id, 3)
 		if err != nil {
 			color.Red("[SendRoot] Error : %s\n", err.Error())
 			return err

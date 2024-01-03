@@ -24,7 +24,7 @@ This function is called while handling Hello and HelloReply
 It checks if the name is empty or not
 It verifies the signature and adds or update the cache
 */
-func checkHello(client *http.Client, message []byte, nb_byte int, addr_sender net.Addr, error_label string) {
+func checkHello(client *http.Client, conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr, error_label string) {
 	// Sender's name is not empty
 	len := getLength(message)
 	if len == 0 {
@@ -64,7 +64,15 @@ func checkHello(client *http.Client, message []byte, nb_byte int, addr_sender ne
 	}
 
 	if VerifySignature(key, data, signature) {
-		AddCachedPeer(BuildPeer(client, message, addr_sender, key))
+		p := BuildPeer(client, message, addr_sender, key)
+		modified := AddCachedPeer(p)
+
+		if modified {
+			rto := ComputeRTO(conn, addr_sender)
+			cache_peers.mutex.Lock()
+			p.AddRTO(addr_sender, rto)
+			cache_peers.mutex.Unlock()
+		}
 	} else {
 		if debug_handler {
 			color.Magenta("%s Invalid signature\n", error_label)
@@ -73,7 +81,7 @@ func checkHello(client *http.Client, message []byte, nb_byte int, addr_sender ne
 	}
 }
 
-func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr, name string) {
+func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	if debug_handler {
 		fmt.Println("[HandleHello] Triggered")
 	}
@@ -82,9 +90,9 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 	nat_sync_map.Unblock(addr_sender)
 
 	// Checking signature and all
-	checkHello(client, message, nb_byte, addr_sender, "[HandleHello]")
+	checkHello(client, conn, message, nb_byte, addr_sender, "[HandleHello]")
 
-	_, err := sendHelloReply(conn, addr_sender, name, getID(message))
+	_, err := sendHelloReply(conn, addr_sender, getID(message))
 	if err != nil {
 		if debug_handler {
 			color.Red("[HandleHello] Error in sending HelloReply : %s\n", err.Error())
@@ -92,13 +100,13 @@ func HandleHello(client *http.Client, conn net.PacketConn, message []byte, nb_by
 	}
 }
 
-func HandleHelloReply(client *http.Client, message []byte, nb_byte int, addr_sender net.Addr) {
+func HandleHelloReply(client *http.Client, conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
 	if debug_handler {
 		fmt.Println("[HandleHelloReply] Triggered")
 	}
 	defer sync_map.Unblock(getID(message))
 
-	checkHello(client, message, nb_byte, addr_sender, "[HandleHelloReply]")
+	checkHello(client, conn, message, nb_byte, addr_sender, "[HandleHelloReply]")
 }
 
 func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
@@ -117,7 +125,7 @@ func HandlePublicKey(conn net.PacketConn, message []byte, nb_byte int, addr_send
 
 	key := make([]byte, 64)
 	cache_peers.mutex.Lock()
-	index_peer := FindCachedPeerByAddr(addr_sender)
+	index_peer, _ := FindCachedPeerByAddr(addr_sender)
 	if index_peer == -1 {
 		color.Magenta("[HandlePublicKey] Unknown Peer\n")
 		cache_peers.mutex.Unlock()
@@ -157,7 +165,7 @@ func HandleRoot(conn net.PacketConn, message []byte, nb_byte int, addr_sender ne
 
 	key := make([]byte, 64)
 	cache_peers.mutex.Lock()
-	index_peer := FindCachedPeerByAddr(addr_sender)
+	index_peer, _ := FindCachedPeerByAddr(addr_sender)
 	if index_peer == -1 {
 		color.Magenta("[HandleRoot] Unknown Peer\n")
 		cache_peers.mutex.Unlock()
@@ -294,7 +302,7 @@ func HandleNatTraversal(conn net.PacketConn, message []byte, nb_byte int, addr_s
 		return
 	}
 
-	sendHello(conn, addr_dest, username, false)
+	sendHello(conn, addr_dest, false)
 }
 
 func HandleRootReply(conn net.PacketConn, message []byte, nb_byte int, addr_sender net.Addr) {
@@ -309,7 +317,7 @@ func HandleRootReply(conn net.PacketConn, message []byte, nb_byte int, addr_send
 
 	// Signature Checking
 	cache_peers.mutex.Lock()
-	index_peer := FindCachedPeerByAddr(addr_sender)
+	index_peer, _ := FindCachedPeerByAddr(addr_sender)
 
 	var key []byte
 	// I don't know the peer
@@ -328,6 +336,7 @@ func HandleRootReply(conn net.PacketConn, message []byte, nb_byte int, addr_send
 	data := message[:7+l]
 	signature := message[7+l : nb_byte]
 	if VerifySignature(key, data, signature) {
+		// There's nothing to do here
 		return
 	} else {
 		if debug_handler {

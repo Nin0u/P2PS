@@ -153,7 +153,7 @@ func start(client *http.Client, conn net.PacketConn) {
 			continue
 		}
 
-		err = sendHello(conn, addr, username, false)
+		err = sendHello(conn, addr, false)
 		if err != nil {
 			color.Magenta("Error send hello : %s\n", err.Error())
 			continue
@@ -281,7 +281,7 @@ func execSendHello(client *http.Client, conn net.PacketConn, words []string) err
 			continue
 		}
 
-		err = sendHello(conn, addr, username, true)
+		err = sendHello(conn, addr, true)
 		if err == nil {
 			flag_ok = true
 		}
