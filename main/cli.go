@@ -324,10 +324,10 @@ func execGetData(client *http.Client, conn net.PacketConn, words []string) (*Pee
 	if p.Root == nil || [32]byte(hash) != p.Root.Hash {
 		p.Root = BuildNode(p.Name, [32]byte(hash), DIRECTORY)
 		err = Explore(conn, p)
-		if err != nil {
-			p.Root = nil
-			return nil, err
-		}
+		// if err != nil {
+		// 	p.Root = nil
+		// 	return nil, err
+		// }
 	}
 
 	PrintNode(p.Root, "")
@@ -365,9 +365,9 @@ func execGetDataDL(client *http.Client, conn net.PacketConn, words []string, pre
 		p.Root = BuildNode(p.Name, [32]byte(hash), DIRECTORY)
 		err = Explore(conn, p)
 		PrintNode(p.Root, "")
-		if err != nil {
-			p.Root = nil
-		}
+		// if err != nil {
+		// 	p.Root = nil
+		// }
 		return errors.New("tree has been updated. Please reboot the download")
 	}
 
