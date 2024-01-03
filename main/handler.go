@@ -68,19 +68,17 @@ func checkHello(client *http.Client, conn net.PacketConn, message []byte, nb_byt
 		modified := AddCachedPeer(p)
 
 		if modified {
+			rto := ComputeRTO(conn, addr_sender)
+
 			cache_peers.mutex.Lock()
 			index := FindCachedPeerByName(p.Name)
 			if index == -1 {
-				color.Red("[CheckHello] Peer venished before RTO computation")
+				color.Red("[CheckHello] Peer venished after RTO computation")
 				cache_peers.mutex.Unlock()
 				return
 			}
 
 			p = cache_peers.list[index]
-			cache_peers.mutex.Unlock()
-
-			rto := ComputeRTO(conn, addr_sender)
-			cache_peers.mutex.Lock()
 			p.AddRTO(addr_sender, rto)
 			PrintCachedPeers()
 			cache_peers.mutex.Unlock()

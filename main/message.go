@@ -104,7 +104,7 @@ func ComputeRTO(conn net.PacketConn, addr net.Addr) time.Duration {
 	RTT := 2 * time.Second
 	RTTvar := 0 * time.Second
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 50; i++ {
 		start_t := time.Now()
 		sendHello(conn, addr, false)
 		end_t := time.Now()
