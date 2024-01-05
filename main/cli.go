@@ -181,7 +181,7 @@ func execCommand(client *http.Client, conn net.PacketConn, content string) {
 		execGetData(client, conn, words)
 
 	case "data_dl":
-		execGetDataDL(client, conn, words, ".")
+		execGetDataDL(client, conn, words, "../DOWNLOAD/")
 
 	case "export":
 		execExport(conn, words)
@@ -325,6 +325,7 @@ func execGetData(client *http.Client, conn net.PacketConn, words []string) (*Pee
 		p.Root = BuildNode(p.Name, [32]byte(hash), DIRECTORY)
 		err = Explore(conn, p)
 		if err != nil {
+			PrintNode(p.Root, "")
 			p.Root = nil
 			return nil, err
 		}
