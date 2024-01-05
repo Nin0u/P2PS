@@ -80,7 +80,9 @@ func checkHello(client *http.Client, conn net.PacketConn, message []byte, nb_byt
 
 			p = cache_peers.list[index]
 			p.AddRTO(addr_sender, rto)
-			PrintCachedPeers()
+			if debug_handler {
+				PrintCachedPeers()
+			}
 			cache_peers.mutex.Unlock()
 		}
 	} else {

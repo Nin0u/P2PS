@@ -368,6 +368,7 @@ func execGetDataDL(client *http.Client, conn net.PacketConn, words []string, pre
 		if err != nil {
 			p.Root = nil
 		}
+		fmt.Println("Tree has been updated. Please reboot the download")
 		return errors.New("tree has been updated. Please reboot the download")
 	}
 

@@ -24,7 +24,7 @@ var timeout_datum_clear, _ = time.ParseDuration("30s")
 var sleep_time, _ = time.ParseDuration("30s")
 
 var DatumCacheClearer = sync.OnceFunc(func() {
-	fmt.Println("DatumCacheClearer Called")
+	//fmt.Println("DatumCacheClearer Called")
 	go datumCacheClearer()
 })
 
@@ -108,7 +108,9 @@ func Recv(client *http.Client, conn net.PacketConn) {
 
 			switch t {
 			case NoOp:
-				fmt.Println("[NoOp] Received")
+				if debug_handler {
+					fmt.Println("[NoOp] Received")
+				}
 			case Error:
 				HandleError(message, "[Error]")
 
@@ -217,7 +219,9 @@ func main() {
 		return
 	}
 
-	export(path)
+	if path != "" {
+		export(path)
+	}
 	GenKeys()
 
 	transport := http.DefaultTransport.(*http.Transport)
