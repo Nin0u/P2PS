@@ -3,7 +3,7 @@
 UDP File sharing program using a control server.
 
 ## Prerequisite
-- [https://go.dev/](Go)
+- [Go](https://go.dev/)
 - A Web Browser for the GUI
 
 ## How to use
