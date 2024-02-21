@@ -1,12 +1,18 @@
-# ProtInt
+# P2PS
+(Stands for P2PShare, but the name has already been taken unfortunately)
+UDP File sharing program using a control server.
 
-## Installation
+## Prerequisite
+- [https://go.dev/](Go)
+- A Web Browser for the GUI
 
-
-### Compilation et Lancement
-
-Dans le dossier main
+## How to use
+- Clone the project
 ```
-go build
-./main --username="Ton Nom"
+  git clone https://github.com/Nin0u/P2PS.git
+```
+- Inside `main/`, open a terminal and type `go build`
+- You can now execute the program by typing
+```
+./main --username="your_username" [--gui] [--help] [--export="path_to_directory"]
 ```
